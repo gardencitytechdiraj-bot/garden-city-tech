@@ -1,8 +1,11 @@
 import {
   type ChangeEvent,
   type FormEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent,
+  type Ref,
   useEffect,
+  useRef,
   useState,
 } from "react";
 
@@ -44,36 +47,42 @@ const services = [
     number: "01",
     title: "Website Development",
     description: "Fast, responsive websites shaped around your goals, content, and customers.",
+    detail: "We can help you plan, design, and launch a fast, accessible website that makes your next stage easier to reach.",
     icon: "✦",
   },
   {
     number: "02",
     title: "UI/UX Design",
     description: "Clear, useful interfaces that make digital experiences easier to understand and use.",
+    detail: "We turn complex journeys into clear flows, thoughtful interfaces, and practical systems your team can keep using.",
     icon: "⌁",
   },
   {
     number: "03",
     title: "Mobile App Development",
     description: "Thoughtful mobile products that help people do more wherever they are.",
+    detail: "From early product thinking to a dependable release, we build mobile experiences around how people actually use them.",
     icon: "◌",
   },
   {
     number: "04",
     title: "SEO and Digital Marketing",
     description: "Practical strategies that improve discoverability and help the right audience find you.",
+    detail: "We connect useful content, technical foundations, and measurable campaigns so the right people can find your work.",
     icon: "↗",
   },
   {
     number: "05",
     title: "Brand Strategy",
     description: "A focused brand direction that gives your business a clearer, more consistent voice.",
+    detail: "We help clarify what you stand for and translate that direction into a brand people can recognize and trust.",
     icon: "⌘",
   },
   {
     number: "06",
     title: "Digital Consulting",
     description: "Experienced guidance for technology decisions, priorities, and digital change.",
+    detail: "Bring us the knotty decision, competing priorities, or next big move; we will help make a sensible path forward.",
     icon: "＋",
   },
 ] as const;
@@ -82,30 +91,37 @@ const packages: Array<{
   name: PackageName;
   eyebrow: string;
   description: string;
+  idealFor: string;
+  recommended?: boolean;
   points: string[];
 }> = [
   {
     name: "Starter",
     eyebrow: "A focused first step",
     description: "Basic website/app development, fixed scope and limited support.",
+    idealFor: "A clear, contained first release",
     points: ["Basic website/app development", "Fixed scope", "Limited support"],
   },
   {
     name: "Growth",
     eyebrow: "Build with momentum",
     description: "Custom development, UI/UX design, QA testing, maintenance, photo/video production and 3D animation.",
+    idealFor: "Teams ready to grow a digital product",
+    recommended: true,
     points: ["Custom development", "UI/UX design and QA testing", "Maintenance, photo/video production, and 3D animation"],
   },
   {
     name: "Enterprise",
     eyebrow: "A dedicated capability",
     description: "Dedicated team, project management, priority support, security reviews and ongoing enhancements.",
+    idealFor: "Organizations with a long-term roadmap",
     points: ["Dedicated team", "Project management and priority support", "Security reviews and ongoing enhancements"],
   },
   {
     name: "Custom",
     eyebrow: "Make the brief your own",
     description: "A flexible solution based on the client’s requirements.",
+    idealFor: "A brief that needs its own shape",
     points: ["A tailored scope", "Flexible service mix", "Requirements-led planning"],
   },
 ];
@@ -135,6 +151,24 @@ const initialForm: ApplicationForm = {
   expectedCompletionDate: "",
   consent: false,
   honeypot: "",
+};
+
+const fieldIds: Record<keyof ApplicationForm, string> = {
+  clientName: "client-name",
+  contactPerson: "contact-person",
+  email: "email",
+  phone: "phone",
+  country: "country",
+  website: "existing-website",
+  selectedService: "selected-service",
+  selectedPackage: "selected-package",
+  projectDescription: "project-description",
+  requiredPages: "required-pages",
+  budgetRange: "budget-range",
+  preferredStartDate: "preferred-start-date",
+  expectedCompletionDate: "expected-completion-date",
+  consent: "consent",
+  honeypot: "honeypot",
 };
 
 const acceptedFileTypes = [
@@ -173,25 +207,92 @@ function App() {
 function HomePage({ onNavigate }: { onNavigate: (path: string) => void }) {
   const [isApplicationOpen, setIsApplicationOpen] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState<PackageName | undefined>();
+  const [selectedService, setSelectedService] = useState<string | null>(null);
+  const [isStoryFilmOpen, setIsStoryFilmOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState("home");
+  const [headerCondensed, setHeaderCondensed] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const storyFilmTriggerRef = useRef<HTMLButtonElement>(null);
+  const storyFilmDialogRef = useRef<HTMLDivElement>(null);
+  const wasMenuOpen = useRef(false);
+  const wasStoryFilmOpen = useRef(false);
+
+  useEffect(() => {
+    const onScroll = () => setHeaderCondensed(window.scrollY > 24);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    const sections = ["home", "services", "about", "packages", "contact"]
+      .map((id) => document.getElementById(id))
+      .filter((section): section is HTMLElement => Boolean(section));
+    if (!sections.length) return;
+    const observer = new IntersectionObserver((entries) => {
+      const visibleSection = entries
+        .filter((entry) => entry.isIntersecting)
+        .sort((first, second) => second.intersectionRatio - first.intersectionRatio)[0];
+      if (visibleSection) setActiveSection(visibleSection.target.id);
+    }, { rootMargin: "-25% 0px -55%", threshold: [0, 0.25, 0.5, 0.75, 1] });
+    sections.forEach((section) => observer.observe(section));
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = originalOverflow; };
+  }, [menuOpen]);
+
+  useEffect(() => {
+    if (!menuOpen && wasMenuOpen.current) menuButtonRef.current?.focus();
+    wasMenuOpen.current = menuOpen;
+  }, [menuOpen]);
+
+  useEffect(() => {
+    if (!isStoryFilmOpen) return;
+    const closeButton = storyFilmDialogRef.current?.querySelector<HTMLButtonElement>(".video-modal-close");
+    closeButton?.focus();
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") setIsStoryFilmOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [isStoryFilmOpen]);
+
+  useEffect(() => {
+    if (!isStoryFilmOpen && wasStoryFilmOpen.current) storyFilmTriggerRef.current?.focus();
+    wasStoryFilmOpen.current = isStoryFilmOpen;
+  }, [isStoryFilmOpen]);
 
   const scrollTo = (id: string) => {
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    const target = document.getElementById(id);
+    target?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (["home", "services", "about", "packages", "contact"].includes(id)) setActiveSection(id);
+    if (id === "main-content") target?.focus({ preventScroll: true });
     setMenuOpen(false);
   };
 
   const openApplication = (packageName?: PackageName) => {
     setSelectedPackage(packageName);
     setIsApplicationOpen(true);
+    setMenuOpen(false);
     window.setTimeout(() => document.getElementById("application")?.scrollIntoView({ behavior: "smooth" }), 0);
   };
 
+  const closeStoryFilm = () => setIsStoryFilmOpen(false);
+  const selectedServiceDetails = services.find((service) => service.title === selectedService);
+  const navButtonClass = (section: string) => activeSection === section ? "nav-active" : undefined;
+
   return (
     <div className="site-shell">
-      <a className="skip-link" href="/" onClick={(event) => { event.preventDefault(); scrollTo("main-content"); }}>
+      <a className="skip-link" href="#main-content">
         Skip to content
       </a>
-      <header className="site-header">
+      <header className={`site-header${headerCondensed ? " is-condensed" : ""}`}>
         <div className="container header-inner">
           <button className="brand-lockup" type="button" onClick={() => scrollTo("home")} aria-label="Garden City Tech home">
             <img className="brand-logo" src="/assets/gc-logo-horizontal.png" alt="Garden City Tech" width="560" height="240" />
@@ -202,23 +303,24 @@ function HomePage({ onNavigate }: { onNavigate: (path: string) => void }) {
             type="button"
             aria-expanded={menuOpen}
             aria-controls="primary-navigation"
+            ref={menuButtonRef}
             onClick={() => setMenuOpen((open) => !open)}
           >
             <span className="sr-only">Toggle navigation</span>
             <span aria-hidden="true">{menuOpen ? "Close" : "Menu"}</span>
           </button>
           <nav id="primary-navigation" className={`primary-nav${menuOpen ? " is-open" : ""}`} aria-label="Primary navigation">
-            <button type="button" onClick={() => scrollTo("home")}>Home</button>
-            <button type="button" onClick={() => scrollTo("services")}>Services</button>
-            <button type="button" onClick={() => scrollTo("about")}>About</button>
-            <button type="button" onClick={() => scrollTo("packages")}>Packages</button>
+            <button className={navButtonClass("home")} aria-current={activeSection === "home" ? "page" : undefined} type="button" onClick={() => scrollTo("home")}>Home</button>
+            <button className={navButtonClass("services")} aria-current={activeSection === "services" ? "page" : undefined} type="button" onClick={() => scrollTo("services")}>Services</button>
+            <button className={navButtonClass("about")} aria-current={activeSection === "about" ? "page" : undefined} type="button" onClick={() => scrollTo("about")}>About</button>
+            <button className={navButtonClass("packages")} aria-current={activeSection === "packages" ? "page" : undefined} type="button" onClick={() => scrollTo("packages")}>Packages</button>
             <button className="nav-apply" type="button" onClick={() => openApplication()}>Apply for Service <span aria-hidden="true">↗</span></button>
-            <button type="button" onClick={() => scrollTo("contact")}>Contact</button>
+            <button className={navButtonClass("contact")} aria-current={activeSection === "contact" ? "page" : undefined} type="button" onClick={() => scrollTo("contact")}>Contact</button>
           </nav>
         </div>
       </header>
 
-      <main id="main-content">
+      <main id="main-content" tabIndex={-1}>
         <section id="home" className="hero-section section-dark" aria-labelledby="hero-heading">
           <div className="hero-orbit hero-orbit-one" aria-hidden="true" />
           <div className="hero-orbit hero-orbit-two" aria-hidden="true" />
@@ -236,7 +338,7 @@ function HomePage({ onNavigate }: { onNavigate: (path: string) => void }) {
               <div className="video-placeholder">
                 <div className="video-grid-lines" aria-hidden="true" />
                 <div className="video-label"><span className="status-dot" /> A glimpse of what’s possible</div>
-                <MagneticPlayButton />
+                <MagneticPlayButton buttonRef={storyFilmTriggerRef} onActivate={() => setIsStoryFilmOpen(true)} />
                 <span className="video-caption">Story film · coming soon</span>
               </div>
             </div>
@@ -262,11 +364,12 @@ function HomePage({ onNavigate }: { onNavigate: (path: string) => void }) {
               <p>From the first sketch to the systems that keep a product healthy, we build with the whole journey in mind.</p>
             </div>
             <div className="service-grid">
-              {services.map((service) => <article className="service-card" key={service.number}>
+              {services.map((service) => <button className={`service-card${selectedService === service.title ? " is-expanded" : ""}`} type="button" key={service.number} aria-expanded={selectedService === service.title} aria-controls="service-detail" onClick={() => setSelectedService((current) => current === service.title ? null : service.title)}>
                 <div className="service-card-top"><span className="service-number">{service.number}</span><span className="service-icon" aria-hidden="true">{service.icon}</span></div>
                 <h3>{service.title}</h3><p>{service.description}</p><span className="card-arrow" aria-hidden="true">↗</span>
-              </article>)}
+              </button>)}
             </div>
+            {selectedServiceDetails && <section id="service-detail" className="service-detail" aria-labelledby="service-detail-heading" aria-live="polite"><p className="overline">Selected service</p><h3 id="service-detail-heading">{selectedServiceDetails.title}</h3><p>{selectedServiceDetails.detail}</p><button className="arrow-link" type="button" onClick={() => openApplication()} >Start a conversation <span aria-hidden="true">↗</span></button></section>}
           </div>
         </section>
 
@@ -279,6 +382,13 @@ function HomePage({ onNavigate }: { onNavigate: (path: string) => void }) {
           </div>
         </section>
 
+        <section className="proof-section section-light" aria-labelledby="proof-heading">
+          <div className="container proof-layout">
+            <div className="section-heading"><p className="overline">Evidence, not noise</p><h2 id="proof-heading">Clarity you can <em>see.</em></h2><p className="large-copy">We keep the work understandable from the first conversation to the handover. You will always know what is being decided, tested, and prepared next.</p></div>
+            <div className="proof-grid"><article><span>01</span><h3>Brief in plain language</h3><p>Goals, constraints, and priorities become a shared plan before production begins.</p></article><article><span>02</span><h3>Prototype before polish</h3><p>Important flows get shaped early, so decisions are visible while they are still easy to improve.</p></article><article><span>03</span><h3>Handover with care</h3><p>Launch includes practical documentation and a clear path for continued support.</p></article></div>
+          </div>
+        </section>
+
         <section className="process-section section-light" aria-labelledby="process-heading">
           <div className="container"><div className="section-heading split-heading"><div><p className="overline">How we work</p><h2 id="process-heading">A clear path from <em>idea</em> to impact.</h2></div><p>Six steps, shared openly. The right amount of structure to keep good work moving.</p></div>
             <ol className="process-list">{processSteps.map(([number, title, description]) => <li key={number}><span className="process-number">{number}</span><div><h3>{title}</h3><p>{description}</p></div><span className="process-arrow" aria-hidden="true">↗</span></li>)}</ol>
@@ -287,7 +397,7 @@ function HomePage({ onNavigate }: { onNavigate: (path: string) => void }) {
 
         <section id="packages" className="packages-section section-mint" aria-labelledby="packages-heading">
           <div className="container"><div className="section-heading package-heading"><p className="overline">Ways to begin</p><h2 id="packages-heading">Find your starting <em>point.</em></h2><p>No two organizations are alike. These packages are conversation starters, shaped to flex around the work.</p></div>
-            <div className="package-grid">{packages.map((pack) => <article className="package-card" key={pack.name}><p className="package-eyebrow">{pack.eyebrow}</p><h3>{pack.name}</h3><p>{pack.description}</p><ul>{pack.points.map((point) => <li key={point}><span aria-hidden="true">+</span>{point}</li>)}</ul><button className="button button-outline" type="button" onClick={() => openApplication(pack.name)}>Choose this package <span aria-hidden="true">↗</span></button></article>)}</div>
+            <div className="package-grid">{packages.map((pack) => <article className={`package-card${pack.recommended ? " is-recommended" : ""}`} key={pack.name}>{pack.recommended && <span className="package-recommended">Recommended</span>}<p className="package-eyebrow">{pack.eyebrow}</p><p className="package-ideal">Best for: {pack.idealFor}</p><h3>{pack.name}</h3><p>{pack.description}</p><ul>{pack.points.map((point) => <li key={point}><span aria-hidden="true">+</span>{point}</li>)}</ul><button className={`button ${pack.recommended ? "button-lime" : "button-outline"}`} type="button" onClick={() => openApplication(pack.name)}>Choose this package <span aria-hidden="true">↗</span></button></article>)}</div>
           </div>
         </section>
 
@@ -302,12 +412,23 @@ function HomePage({ onNavigate }: { onNavigate: (path: string) => void }) {
         <section id="contact" className="cta-section section-dark" aria-labelledby="cta-heading"><div className="cta-glow" aria-hidden="true" /><div className="container cta-content"><p className="overline overline-lime">Your next chapter starts here</p><h2 id="cta-heading">Let’s grow<br /><em>something good.</em></h2><p>Tell us where you’re headed. We’ll bring curiosity, clarity, and the technical care to help you get there.</p><button className="button button-lime" type="button" onClick={() => openApplication()}>Apply for service <span aria-hidden="true">↗</span></button></div></section>
       </main>
 
+      {isStoryFilmOpen && <div className="video-modal" onKeyDown={(event: ReactKeyboardEvent<HTMLDivElement>) => { if (event.key === "Escape") closeStoryFilm(); }}>
+        <button className="video-modal-backdrop" type="button" aria-label="Close story film dialog" onClick={closeStoryFilm} />
+        <div className="video-modal-dialog" ref={storyFilmDialogRef} role="dialog" aria-modal="true" aria-labelledby="story-film-heading" aria-describedby="story-film-description">
+          <button className="video-modal-close" type="button" onClick={closeStoryFilm} aria-label="Close story film dialog">×</button>
+          <p className="overline overline-lime">Story film</p>
+          <h2 id="story-film-heading">A glimpse is <em>coming soon.</em></h2>
+          <p id="story-film-description" className="video-modal-note" role="status">The Garden City Tech story film is not available yet. We’re preparing something worth watching.</p>
+          <button className="button button-lime" type="button" onClick={closeStoryFilm}>Close this message <span aria-hidden="true">↗</span></button>
+        </div>
+      </div>}
+
       <footer className="site-footer"><div className="container footer-grid"><div><img className="footer-logo" src="/assets/gc-logo-horizontal.png" alt="Garden City Tech" width="560" height="240" /><p>Rooted in Nepal. Building technology for the world.</p></div><div className="footer-nav"><p className="overline">Explore</p><button type="button" onClick={() => scrollTo("services")}>Services</button><button type="button" onClick={() => scrollTo("about")}>About</button><button type="button" onClick={() => scrollTo("packages")}>Packages</button></div><div className="footer-nav"><p className="overline">Start here</p><button type="button" onClick={() => openApplication()}>Apply for service</button><button type="button" onClick={() => scrollTo("contact")}>Contact</button><button className="admin-link" type="button" onClick={() => onNavigate("/admin")}>Admin access <span aria-hidden="true">↗</span></button></div></div><div className="container footer-bottom"><span>© 2026 Garden City Tech Pvt. Ltd.</span><span>Technology that grows with you.</span></div></footer>
     </div>
   );
 }
 
-function MagneticPlayButton() {
+function MagneticPlayButton({ buttonRef, onActivate }: { buttonRef?: Ref<HTMLButtonElement>; onActivate: () => void }) {
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [reducedMotion, setReducedMotion] = useState(false);
 
@@ -336,7 +457,7 @@ function MagneticPlayButton() {
     setOffset({ x: distanceX * 0.12 * strength, y: distanceY * 0.12 * strength });
   };
 
-  return <div className="play-control-layer" onPointerMove={handlePointerMove} onPointerLeave={() => setOffset({ x: 0, y: 0 })}><button className="magnetic-play" type="button" aria-label="Play the Garden City Tech story film" style={reducedMotion ? undefined : { transform: `translate(${offset.x}px, ${offset.y}px)` }}><span className="play-triangle" aria-hidden="true" /></button></div>;
+  return <div className="play-control-layer" onPointerMove={handlePointerMove} onPointerLeave={() => setOffset({ x: 0, y: 0 })}><button ref={buttonRef} className="magnetic-play" type="button" aria-label="Play the Garden City Tech story film" style={reducedMotion ? undefined : { transform: `translate(${offset.x}px, ${offset.y}px)` }} onClick={onActivate}><span className="play-triangle" aria-hidden="true" /></button></div>;
 }
 
 function ApplicationSection({ selectedPackage, onClose }: { selectedPackage?: PackageName; onClose: () => void }) {
@@ -345,12 +466,16 @@ function ApplicationSection({ selectedPackage, onClose }: { selectedPackage?: Pa
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState("");
   const [fieldError, setFieldError] = useState("");
+  const [invalidFields, setInvalidFields] = useState<string[]>([]);
   const [submitState, setSubmitState] = useState<"idle" | "loading" | "success" | "failure">("idle");
   const [submitMessage, setSubmitMessage] = useState("");
 
   useEffect(() => { setForm((current) => ({ ...current, selectedPackage: selectedPackage ?? "" })); }, [selectedPackage]);
 
-  const updateField = (field: keyof ApplicationForm, value: string | boolean) => setForm((current) => ({ ...current, [field]: value }));
+  const updateField = (field: keyof ApplicationForm, value: string | boolean) => {
+    setForm((current) => ({ ...current, [field]: value }));
+    setInvalidFields((current) => current.filter((invalidField) => invalidField !== fieldIds[field]));
+  };
 
   const onFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0] ?? null;
@@ -368,11 +493,42 @@ function ApplicationSection({ selectedPackage, onClose }: { selectedPackage?: Pa
 
   const validateStep = (currentStep: number) => {
     setFieldError("");
-    if (currentStep === 1 && (!form.clientName.trim() || !form.contactPerson.trim() || !form.email.trim() || !form.phone.trim() || !form.country.trim())) { setFieldError("Please complete your organization, contact person, email, phone, and country before continuing."); return false; }
-    if (currentStep === 1 && !/^\S+@\S+\.\S+$/.test(form.email.trim())) { setFieldError("Please enter a valid email address."); return false; }
-    if (currentStep === 2 && (!form.selectedService || !form.selectedPackage)) { setFieldError("Please choose a service and a starting package."); return false; }
-    if (currentStep === 3 && (!form.projectDescription.trim() || !form.requiredPages.trim() || !form.budgetRange.trim() || !form.preferredStartDate || !form.expectedCompletionDate)) { setFieldError("Please complete the project description, required pages or features, budget range, and timeline before continuing."); return false; }
-    if (currentStep === 3 && form.website && !/^https?:\/\//i.test(form.website.trim())) { setFieldError("Existing website URL must start with http:// or https://."); return false; }
+    setInvalidFields([]);
+    const failValidation = (message: string, fields: string[]) => {
+      setFieldError(message);
+      setInvalidFields(fields);
+      window.setTimeout(() => document.getElementById(fields[0])?.focus(), 0);
+      return false;
+    };
+    if (currentStep === 1) {
+      const missingFields = [
+        !form.clientName.trim() && "client-name",
+        !form.contactPerson.trim() && "contact-person",
+        !form.email.trim() && "email",
+        !form.phone.trim() && "phone",
+        !form.country.trim() && "country",
+      ].filter((field): field is string => Boolean(field));
+      if (missingFields.length) return failValidation("Please complete your organization, contact person, email, phone, and country before continuing.", missingFields);
+      if (!/^\S+@\S+\.\S+$/.test(form.email.trim())) return failValidation("Please enter a valid email address.", ["email"]);
+    }
+    if (currentStep === 2) {
+      const missingFields = [
+        !form.selectedService && "selected-service",
+        !form.selectedPackage && "selected-package",
+      ].filter((field): field is string => Boolean(field));
+      if (missingFields.length) return failValidation("Please choose a service and a starting package.", missingFields);
+    }
+    if (currentStep === 3) {
+      const missingFields = [
+        !form.projectDescription.trim() && "project-description",
+        !form.requiredPages.trim() && "required-pages",
+        !form.budgetRange.trim() && "budget-range",
+        !form.preferredStartDate && "preferred-start-date",
+        !form.expectedCompletionDate && "expected-completion-date",
+      ].filter((field): field is string => Boolean(field));
+      if (missingFields.length) return failValidation("Please complete the project description, required pages or features, budget range, and timeline before continuing.", missingFields);
+      if (form.website && !/^https?:\/\//i.test(form.website.trim())) return failValidation("Existing website URL must start with http:// or https://.", ["existing-website"]);
+    }
     return true;
   };
 
@@ -381,7 +537,16 @@ function ApplicationSection({ selectedPackage, onClose }: { selectedPackage?: Pa
 
   const submitApplication = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!validateStep(4) || !form.consent) { setFieldError(!form.consent ? "Please agree to be contacted about this application." : "Please review the required fields."); return; }
+    if (!validateStep(4) || !form.consent) {
+      if (!form.consent) {
+        setFieldError("Please agree to be contacted about this application.");
+        setInvalidFields(["consent"]);
+        window.setTimeout(() => document.getElementById("consent")?.focus(), 0);
+      } else {
+        setFieldError("Please review the required fields.");
+      }
+      return;
+    }
     setSubmitState("loading"); setSubmitMessage("");
     const payload = new FormData();
     Object.entries(form).forEach(([key, value]) => payload.append(key, String(value)));
@@ -398,20 +563,24 @@ function ApplicationSection({ selectedPackage, onClose }: { selectedPackage?: Pa
     }
   };
 
+  const isInvalid = (field: string) => invalidFields.includes(field);
+
   if (submitState === "success") return <section id="application" className="application-section section-dark" aria-live="polite"><div className="container application-result"><span className="result-mark">✓</span><p className="overline overline-lime">Application received</p><h2>We’ll be in <em>touch.</em></h2><p>{submitMessage}</p><button className="button button-lime" type="button" onClick={onClose}>Back to the site <span aria-hidden="true">↗</span></button></div></section>;
 
   return <section id="application" className="application-section section-dark" aria-labelledby="application-heading"><div className="container"><div className="application-top"><div><p className="overline overline-lime">Apply for service</p><h2 id="application-heading">Let’s make a good<br /><em>plan together.</em></h2></div><button className="close-button" type="button" onClick={onClose} aria-label="Close application form">×</button></div><div className="form-layout"><div className="form-sidebar"><p>Application / 0{step}</p><div className="progress-rail" aria-label={`Step ${step} of 4`}><span style={{ height: `${step * 25}%` }} /></div><ol>{["About you", "The brief", "The details", "Review & send"].map((label, index) => <li className={step === index + 1 ? "is-current" : step > index + 1 ? "is-complete" : ""} key={label}><span>{String(index + 1).padStart(2, "0")}</span>{label}</li>)}</ol><p className="form-note">We only use your information to understand the work and respond to your application.</p></div>
-          <form className="application-form" onSubmit={submitApplication} noValidate><div className="honeypot" aria-hidden="true"><label htmlFor="honeypot">Website</label><input id="honeypot" name="honeypot" tabIndex={-1} autoComplete="off" value={form.honeypot} onChange={(event) => updateField("honeypot", event.target.value)} /></div>
-            {step === 1 && <fieldset><legend>Tell us about you</legend><p className="fieldset-intro">A few basics are enough to start.</p><div className="field-grid"><Field label="Client or organization name" required value={form.clientName} onChange={(value) => updateField("clientName", value)} autoComplete="organization" /><Field label="Contact person" required value={form.contactPerson} onChange={(value) => updateField("contactPerson", value)} autoComplete="name" /><Field label="Email address" required type="email" value={form.email} onChange={(value) => updateField("email", value)} autoComplete="email" /><Field label="Phone number" required type="tel" value={form.phone} onChange={(value) => updateField("phone", value)} autoComplete="tel" /><Field label="Country" required value={form.country} onChange={(value) => updateField("country", value)} autoComplete="country-name" /></div></fieldset>}
-            {step === 2 && <fieldset><legend>Shape the brief</legend><p className="fieldset-intro">Choose the path that feels closest. We’ll refine it together.</p><div className="field-grid"><label className="field wide"><span>Selected service <b aria-hidden="true">*</b></span><select aria-label="Selected service" value={form.selectedService} onChange={(event) => updateField("selectedService", event.target.value)}><option value="">Select a service</option>{services.map((service) => <option key={service.title} value={service.title}>{service.title}</option>)}</select></label><label className="field wide"><span>Selected package <b aria-hidden="true">*</b></span><select aria-label="Selected package" value={form.selectedPackage} onChange={(event) => updateField("selectedPackage", event.target.value as PackageName)}><option value="">Select a package</option>{packages.map((pack) => <option key={pack.name} value={pack.name}>{pack.name} — {pack.eyebrow}</option>)}</select></label></div></fieldset>}
-            {step === 3 && <fieldset><legend>Give us the details</legend><p className="fieldset-intro">The more context you share, the more useful our first response can be.</p><label className="field wide"><span>Project description <b aria-hidden="true">*</b></span><textarea rows={5} value={form.projectDescription} onChange={(event) => updateField("projectDescription", event.target.value)} placeholder="What are you hoping to create, improve, or change?" /></label><label className="field wide"><span>Required pages or features <b aria-hidden="true">*</b></span><textarea rows={3} value={form.requiredPages} onChange={(event) => updateField("requiredPages", event.target.value)} placeholder="Which pages, features, or capabilities should we plan for?" /></label><div className="field-grid"><Field label="Existing website URL" value={form.website} onChange={(value) => updateField("website", value)} type="url" /><label className="field"><span>Budget range <b aria-hidden="true">*</b></span><select value={form.budgetRange} onChange={(event) => updateField("budgetRange", event.target.value)}><option value="">Select an option</option><option>Not sure yet</option><option>To discuss</option><option>I’ll share a range after our first conversation</option></select></label><Field label="Preferred start date" required type="date" value={form.preferredStartDate} onChange={(value) => updateField("preferredStartDate", value)} /><Field label="Expected completion date" required type="date" value={form.expectedCompletionDate} onChange={(value) => updateField("expectedCompletionDate", value)} /></div></fieldset>}
-            {step === 4 && <fieldset><legend>Review & send</legend><p className="fieldset-intro">One last thing: attach a useful brief or reference if you have one.</p><label className="file-drop"><span className="file-icon" aria-hidden="true">↥</span><span><strong>{file ? file.name : "Upload a brief or reference"}</strong><small>PDF, DOC, DOCX, PNG, JPG, or ZIP · max 10 MB</small></span><input type="file" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.zip" onChange={onFileChange} /></label>{fileError && <p className="form-error" role="alert">{fileError}</p>}<div className="review-card"><div><span>Organization</span><strong>{form.clientName || "—"}</strong></div><div><span>Service</span><strong>{form.selectedService || "—"}</strong></div><div><span>Package</span><strong>{form.selectedPackage || "—"}</strong></div><div><span>Email</span><strong>{form.email || "—"}</strong></div></div><label className="consent-check"><input type="checkbox" checked={form.consent} onChange={(event) => updateField("consent", event.target.checked)} /><span>I agree to be contacted by Garden City Tech about this application.</span></label></fieldset>}
-            {fieldError && <p className="form-error" role="alert">{fieldError}</p>}{submitState === "failure" && <p className="form-error" role="alert">{submitMessage}</p>}<div className="form-actions">{step > 1 && <button className="text-button light-button" type="button" onClick={previousStep}>← Back</button>}{step < 4 ? <button className="button button-lime" type="button" onClick={nextStep}>Continue <span aria-hidden="true">→</span></button> : <button className="button button-lime" type="submit" disabled={submitState === "loading"}>{submitState === "loading" ? "Sending…" : "Send application ↗"}</button>}</div>
+          <form className="application-form" onSubmit={submitApplication} noValidate><div className="honeypot" aria-hidden="true"><label htmlFor="honeypot">Website</label><input id="honeypot" name="honeypot" tabIndex={-1} autoComplete="off" aria-describedby="honeypot-description" value={form.honeypot} onChange={(event) => updateField("honeypot", event.target.value)} /><span id="honeypot-description" className="sr-only">Leave this field empty.</span></div>
+            {step === 1 && <fieldset><legend>Tell us about you</legend><p className="fieldset-intro">A few basics are enough to start.</p><div className="field-grid"><Field id="client-name" name="clientName" label="Client or organization name" required invalid={isInvalid("client-name")} value={form.clientName} onChange={(value) => updateField("clientName", value)} autoComplete="organization" /><Field id="contact-person" name="contactPerson" label="Contact person" required invalid={isInvalid("contact-person")} value={form.contactPerson} onChange={(value) => updateField("contactPerson", value)} autoComplete="name" /><Field id="email" name="email" label="Email address" required invalid={isInvalid("email")} type="email" value={form.email} onChange={(value) => updateField("email", value)} autoComplete="email" /><Field id="phone" name="phone" label="Phone number" required invalid={isInvalid("phone")} type="tel" value={form.phone} onChange={(value) => updateField("phone", value)} autoComplete="tel" /><Field id="country" name="country" label="Country" required invalid={isInvalid("country")} value={form.country} onChange={(value) => updateField("country", value)} autoComplete="country-name" /></div></fieldset>}
+            {step === 2 && <fieldset><legend>Shape the brief</legend><p className="fieldset-intro">Choose the path that feels closest. We’ll refine it together.</p><div className="field-grid"><label className="field wide" htmlFor="selected-service"><span id="selected-service-label">Selected service <b aria-hidden="true">*</b></span><select id="selected-service" name="selectedService" required aria-invalid={isInvalid("selected-service")} aria-describedby="selected-service-description" aria-labelledby="selected-service-label" value={form.selectedService} onChange={(event) => updateField("selectedService", event.target.value)}><option value="">Select a service</option>{services.map((service) => <option key={service.title} value={service.title}>{service.title}</option>)}</select><span id="selected-service-description" className="sr-only">Required. Choose the service you want to discuss.</span></label><label className="field wide" htmlFor="selected-package"><span id="selected-package-label">Selected package <b aria-hidden="true">*</b></span><select id="selected-package" name="selectedPackage" required aria-invalid={isInvalid("selected-package")} aria-describedby="selected-package-description" aria-labelledby="selected-package-label" value={form.selectedPackage} onChange={(event) => updateField("selectedPackage", event.target.value as PackageName)}><option value="">Select a package</option>{packages.map((pack) => <option key={pack.name} value={pack.name}>{pack.name} — {pack.eyebrow}</option>)}</select><span id="selected-package-description" className="sr-only">Required. Choose a starting package.</span></label></div></fieldset>}
+            {step === 3 && <fieldset><legend>Give us the details</legend><p className="fieldset-intro">The more context you share, the more useful our first response can be.</p><label className="field wide" htmlFor="project-description"><span id="project-description-label">Project description <b aria-hidden="true">*</b></span><textarea id="project-description" name="projectDescription" rows={5} required aria-invalid={isInvalid("project-description")} aria-describedby="project-description-description" aria-labelledby="project-description-label" value={form.projectDescription} onChange={(event) => updateField("projectDescription", event.target.value)} placeholder="What are you hoping to create, improve, or change?" /><span id="project-description-description" className="sr-only">Required. Describe what you are hoping to create, improve, or change.</span></label><label className="field wide" htmlFor="required-pages"><span id="required-pages-label">Required pages or features <b aria-hidden="true">*</b></span><textarea id="required-pages" name="requiredPages" rows={3} required aria-invalid={isInvalid("required-pages")} aria-describedby="required-pages-description" aria-labelledby="required-pages-label" value={form.requiredPages} onChange={(event) => updateField("requiredPages", event.target.value)} placeholder="Which pages, features, or capabilities should we plan for?" /><span id="required-pages-description" className="sr-only">Required. List the pages, features, or capabilities to plan for.</span></label><div className="field-grid"><Field id="existing-website" name="website" label="Existing website URL" invalid={isInvalid("existing-website")} value={form.website} onChange={(value) => updateField("website", value)} type="url" /><label className="field" htmlFor="budget-range"><span id="budget-range-label">Budget range <b aria-hidden="true">*</b></span><select id="budget-range" name="budgetRange" required aria-invalid={isInvalid("budget-range")} aria-describedby="budget-range-description" aria-labelledby="budget-range-label" value={form.budgetRange} onChange={(event) => updateField("budgetRange", event.target.value)}><option value="">Select an option</option><option>Not sure yet</option><option>To discuss</option><option>I’ll share a range after our first conversation</option></select><span id="budget-range-description" className="sr-only">Required. Choose the budget range that best fits.</span></label><Field id="preferred-start-date" name="preferredStartDate" label="Preferred start date" required invalid={isInvalid("preferred-start-date")} type="date" value={form.preferredStartDate} onChange={(value) => updateField("preferredStartDate", value)} /><Field id="expected-completion-date" name="expectedCompletionDate" label="Expected completion date" required invalid={isInvalid("expected-completion-date")} type="date" value={form.expectedCompletionDate} onChange={(value) => updateField("expectedCompletionDate", value)} /></div></fieldset>}
+            {step === 4 && <fieldset><legend>Review & send</legend><p className="fieldset-intro">One last thing: attach a useful brief or reference if you have one.</p><label className="file-drop" htmlFor="application-attachment"><span className="file-icon" aria-hidden="true">↥</span><span><strong>{file ? file.name : "Upload a brief or reference"}</strong><small>PDF, DOC, DOCX, PNG, JPG, or ZIP · max 10 MB</small></span><input id="application-attachment" name="attachment" type="file" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.zip" aria-invalid={Boolean(fileError)} aria-describedby={fileError ? "attachment-description attachment-error" : "attachment-description"} onChange={onFileChange} /><span id="attachment-description" className="sr-only">Optional. PDF, DOC, DOCX, PNG, JPG, or ZIP, maximum 10 MB.</span></label>{fileError && <p id="attachment-error" className="form-error" role="alert">{fileError}</p>}<div className="review-card"><div><span>Organization</span><strong>{form.clientName || "—"}</strong></div><div><span>Service</span><strong>{form.selectedService || "—"}</strong></div><div><span>Package</span><strong>{form.selectedPackage || "—"}</strong></div><div><span>Email</span><strong>{form.email || "—"}</strong></div></div><label className="consent-check" htmlFor="consent"><input id="consent" name="consent" type="checkbox" required aria-invalid={isInvalid("consent")} aria-describedby="consent-description" checked={form.consent} onChange={(event) => updateField("consent", event.target.checked)} /><span>I agree to be contacted by Garden City Tech about this application.</span><span id="consent-description" className="sr-only">Required. Agree to be contacted about this application.</span></label></fieldset>}
+            {fieldError && <p id="application-error" className="form-error" role="alert">{fieldError}</p>}{submitState === "failure" && <p id="submission-error" className="form-error" role="alert">{submitMessage}</p>}<div className="form-actions">{step > 1 && <button className="text-button light-button" type="button" onClick={previousStep}>← Back</button>}{step < 4 ? <button className="button button-lime" type="button" onClick={nextStep}>Continue <span aria-hidden="true">→</span></button> : <button className="button button-lime" type="submit" disabled={submitState === "loading"}>{submitState === "loading" ? "Sending…" : "Send application ↗"}</button>}</div>
           </form></div></div></section>;
 }
 
-function Field({ label, value, onChange, type = "text", required = false, wide = false, autoComplete }: { label: string; value: string; onChange: (value: string) => void; type?: string; required?: boolean; wide?: boolean; autoComplete?: string }) {
-  return <label className={`field${wide ? " wide" : ""}`}><span>{label} {required && <b aria-hidden="true">*</b>}</span><input type={type} value={value} required={required} autoComplete={autoComplete} onChange={(event) => onChange(event.target.value)} /></label>;
+function Field({ id, name, label, value, onChange, type = "text", required = false, wide = false, autoComplete, invalid = false }: { id: string; name: string; label: string; value: string; onChange: (value: string) => void; type?: string; required?: boolean; wide?: boolean; autoComplete?: string; invalid?: boolean }) {
+  const labelId = `${id}-label`;
+  const descriptionId = `${id}-description`;
+  return <label className={`field${wide ? " wide" : ""}`} htmlFor={id}><span id={labelId}>{label} {required && <b aria-hidden="true">*</b>}</span><input id={id} name={name} type={type} value={value} required={required} aria-invalid={invalid} aria-describedby={descriptionId} aria-labelledby={labelId} autoComplete={autoComplete} onChange={(event) => onChange(event.target.value)} />{invalid && <span id={descriptionId} className="field-error" role="alert">Please complete this field.</span>}</label>;
 }
 
 function AdminPanel({ onBack }: { onBack: () => void }) {

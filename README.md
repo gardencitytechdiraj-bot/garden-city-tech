@@ -70,7 +70,7 @@ The multi-step application form validates required fields, validates the allow-l
 
 ## Brand and assets
 
-The site follows the supplied Garden City Tech guide: `#ECFFF0`, `#D7ECB2`, `#95D041`, `#378544`, and `#016665`. The horizontal lockup is used at desktop widths and the icon mark is used for the favicon and compact mobile header. The provided assets were resized for web use and are not loaded at their original dimensions.
+The site follows the supplied Garden City Tech guide: `#ECFFF0`, `#D7ECB2`, `#95D041`, `#378544`, and `#016665`. The horizontal lockup is used at desktop widths and the transparent icon mark is used for the favicon, compact mobile header, and brand stamp. The supplied transparent horizontal logo was resized for web use; the compact transparent mark is cropped from that same transparent artwork so no logo instance carries a white background.
 
 The hero includes a restrained magnetic play control for the future video. Drop the final optimized video into the public assets directory later; the interaction respects `prefers-reduced-motion`.
 
