@@ -321,7 +321,7 @@ function HomePage({ onNavigate }: { onNavigate: (path: string) => void }) {
       </header>
 
       <main id="main-content" tabIndex={-1}>
-        <section id="home" className="hero-section section-dark" aria-labelledby="hero-heading">
+        <section id="home" className="hero-section hero-light section-light" aria-labelledby="hero-heading">
           <div className="hero-orbit hero-orbit-one" aria-hidden="true" />
           <div className="hero-orbit hero-orbit-two" aria-hidden="true" />
           <div className="container hero-grid">

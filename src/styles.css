@@ -62,6 +62,13 @@ em { color: var(--forest); font-family: Georgia, "Times New Roman", serif; font-
 .menu-toggle { display: none; min-height: 44px; padding: 10px 0; color: var(--mint); background: transparent; font-weight: 700; }
 
 .hero-section { min-height: 760px; padding: 178px 0 36px; isolation: isolate; }
+.hero-light { position: relative; color: var(--ink); background: #fff; }
+.hero-light .overline-lime { color: var(--forest); }
+.hero-light .hero-intro { color: var(--muted); }
+.hero-light .light-button { color: var(--teal-deep); }
+.hero-light .hero-footnote { color: var(--muted); }
+.hero-light .hero-rule { background: var(--line); }
+.hero-light .hero-orbit { border-color: rgba(55, 133, 68, 0.2); }
 .hero-grid { display: grid; grid-template-columns: minmax(0, 0.98fr) minmax(380px, 0.9fr); align-items: center; gap: clamp(40px, 8vw, 120px); }
 .hero-copy { position: relative; z-index: 1; }
 .hero-copy h1 { max-width: 680px; margin-bottom: 26px; font-size: clamp(3.7rem, 8vw, 7.6rem); line-height: 0.91; }
