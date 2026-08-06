@@ -314,7 +314,7 @@ function HomePage({ onNavigate }: { onNavigate: (path: string) => void }) {
             <button className={navButtonClass("services")} aria-current={activeSection === "services" ? "page" : undefined} type="button" onClick={() => scrollTo("services")}>Services</button>
             <button className={navButtonClass("about")} aria-current={activeSection === "about" ? "page" : undefined} type="button" onClick={() => scrollTo("about")}>About</button>
             <button className={navButtonClass("packages")} aria-current={activeSection === "packages" ? "page" : undefined} type="button" onClick={() => scrollTo("packages")}>Packages</button>
-            <button className="nav-apply" type="button" onClick={() => openApplication()}>Apply for Service <span aria-hidden="true">↗</span></button>
+            <button className="nav-apply" type="button" onClick={() => openApplication()}>Apply for Service</button>
             <button className={navButtonClass("contact")} aria-current={activeSection === "contact" ? "page" : undefined} type="button" onClick={() => scrollTo("contact")}>Contact</button>
           </nav>
         </div>
