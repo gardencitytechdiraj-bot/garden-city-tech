@@ -1,4 +1,5 @@
 import {
+  Fragment,
   type ChangeEvent,
   type FormEvent,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -42,7 +43,9 @@ type AdminApplication = {
   status?: string;
 };
 
-const STORY_FILM_SRC = "https://raw.githubusercontent.com/gardencitytechdiraj-bot/garden-city-tech/main/public/assets/mount-everest-himalayas-in-nepal-2026-01-22-22-57-24-utc.mp4";
+const STORY_FILM_ID = "ucsmwKrisFI";
+const STORY_FILM_MP4_SRC = "https://raw.githubusercontent.com/gardencitytechdiraj-bot/garden-city-tech/main/public/assets/mount-everest-himalayas-in-nepal-2026-01-22-22-57-24-utc.mp4";
+const STORY_FILM_MODAL_SRC = `https://www.youtube-nocookie.com/embed/${STORY_FILM_ID}?autoplay=1&controls=1&playsinline=1&rel=0&modestbranding=1`;
 
 const services = [
   {
@@ -137,6 +140,37 @@ const processSteps = [
   ["06", "Launch and support", "We stay available for the next iteration, improvement, or new chapter."],
 ] as const;
 
+const companyValues = [
+  {
+    name: "People first",
+    message: "We value people above all else. We invest in our employees, build meaningful relationships with our clients, and create an environment where everyone has the opportunity to grow and thrive.",
+  },
+  {
+    name: "Innovation with purpose",
+    message: "We embrace creativity to build technology that solves real problems and creates lasting impact.",
+  },
+  {
+    name: "Excellence",
+    message: "We are committed to delivering reliable, secure, and high-quality software.",
+  },
+  {
+    name: "Integrity",
+    message: "We act with honesty, transparency, and accountability, earning the trust of our clients.",
+  },
+  {
+    name: "Collaboration",
+    message: "We believe the best solutions come from teamwork, diverse perspectives, and strong partnerships with our clients and one another.",
+  },
+  {
+    name: "Continuous learning",
+    message: "Technology evolves every day, and so do we. We encourage curiosity, professional development, and sharing knowledge to help everyone reach their full potential.",
+  },
+  {
+    name: "Communication",
+    message: "Clear communication is the foundation for a successful partnership. We are committed to timely and consistent communication.",
+  },
+] as const;
+
 const initialForm: ApplicationForm = {
   clientName: "",
   contactPerson: "",
@@ -209,12 +243,16 @@ function App() {
 function HomePage({ onNavigate }: { onNavigate: (path: string) => void }) {
   const [isApplicationOpen, setIsApplicationOpen] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState<PackageName | undefined>();
-  const [selectedService, setSelectedService] = useState<string | null>(null);
+  const [selectedService, setSelectedService] = useState<string | undefined>();
+  const [selectedValue, setSelectedValue] = useState<string | undefined>();
+  const [hoveredValue, setHoveredValue] = useState<string | undefined>();
+  const [focusedValue, setFocusedValue] = useState<string | undefined>();
   const [isStoryFilmOpen, setIsStoryFilmOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("home");
   const [headerCondensed, setHeaderCondensed] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const primaryNavRef = useRef<HTMLElement>(null);
   const storyFilmTriggerRef = useRef<HTMLButtonElement>(null);
   const storyFilmDialogRef = useRef<HTMLDivElement>(null);
   const wasMenuOpen = useRef(false);
@@ -255,6 +293,23 @@ function HomePage({ onNavigate }: { onNavigate: (path: string) => void }) {
   }, [menuOpen]);
 
   useEffect(() => {
+    if (!menuOpen) return;
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+    const onPointerDown = (event: globalThis.PointerEvent) => {
+      if (event.target instanceof Node && (primaryNavRef.current?.contains(event.target) || menuButtonRef.current?.contains(event.target))) return;
+      setMenuOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("pointerdown", onPointerDown);
+    };
+  }, [menuOpen]);
+
+  useEffect(() => {
     if (!isStoryFilmOpen) return;
     const closeButton = storyFilmDialogRef.current?.querySelector<HTMLButtonElement>(".video-modal-close");
     closeButton?.focus();
@@ -278,8 +333,9 @@ function HomePage({ onNavigate }: { onNavigate: (path: string) => void }) {
     setMenuOpen(false);
   };
 
-  const openApplication = (packageName?: PackageName) => {
+  const openApplication = (packageName?: PackageName, serviceName?: string) => {
     setSelectedPackage(packageName);
+    setSelectedService(serviceName);
     setIsApplicationOpen(true);
     setMenuOpen(false);
     window.setTimeout(() => document.getElementById("application")?.scrollIntoView({ behavior: "smooth" }), 0);
@@ -287,6 +343,8 @@ function HomePage({ onNavigate }: { onNavigate: (path: string) => void }) {
 
   const closeStoryFilm = () => setIsStoryFilmOpen(false);
   const selectedServiceDetails = services.find((service) => service.title === selectedService);
+  const activeValueName = hoveredValue ?? focusedValue ?? selectedValue;
+  const activeValueDetails = companyValues.find((value) => value.name === activeValueName);
   const navButtonClass = (section: string) => activeSection === section ? "nav-active" : undefined;
 
   return (
@@ -305,13 +363,14 @@ function HomePage({ onNavigate }: { onNavigate: (path: string) => void }) {
             type="button"
             aria-expanded={menuOpen}
             aria-controls="primary-navigation"
+            aria-label={menuOpen ? "Close navigation" : "Open navigation"}
             ref={menuButtonRef}
             onClick={() => setMenuOpen((open) => !open)}
           >
-            <span className="sr-only">Toggle navigation</span>
-            <span aria-hidden="true">{menuOpen ? "Close" : "Menu"}</span>
+            <span className="sr-only">{menuOpen ? "Close navigation" : "Open navigation"}</span>
+            <span className="menu-toggle-mark" aria-hidden="true" />
           </button>
-          <nav id="primary-navigation" className={`primary-nav${menuOpen ? " is-open" : ""}`} aria-label="Primary navigation">
+          <nav id="primary-navigation" ref={primaryNavRef} className={`primary-nav${menuOpen ? " is-open" : ""}`} aria-label="Primary navigation">
             <button className={navButtonClass("home")} aria-current={activeSection === "home" ? "page" : undefined} type="button" onClick={() => scrollTo("home")}>Home</button>
             <button className={navButtonClass("services")} aria-current={activeSection === "services" ? "page" : undefined} type="button" onClick={() => scrollTo("services")}>Services</button>
             <button className={navButtonClass("about")} aria-current={activeSection === "about" ? "page" : undefined} type="button" onClick={() => scrollTo("about")}>About</button>
@@ -338,15 +397,15 @@ function HomePage({ onNavigate }: { onNavigate: (path: string) => void }) {
             </div>
             <div className="hero-visual" aria-label="Garden City Tech story film">
               <div className="video-placeholder">
-                <video className="video-preview" src={STORY_FILM_SRC} autoPlay muted loop playsInline preload="metadata" aria-hidden="true" />
+                <video className="video-preview" src={STORY_FILM_MP4_SRC} autoPlay muted loop playsInline preload="metadata" aria-hidden="true" />
                 <div className="video-grid-lines" aria-hidden="true" />
-                <div className="video-label"><span className="status-dot" /> A glimpse of what’s possible</div>
+                <div className="video-label"><span className="status-dot" /> WHO WE ARE !</div>
                 <MagneticPlayButton buttonRef={storyFilmTriggerRef} onActivate={() => setIsStoryFilmOpen(true)} />
-                <span className="video-caption">Story film · 10 seconds</span>
+                <span className="video-caption">Story film</span>
               </div>
             </div>
           </div>
-          <div className="container hero-footnote"><span>01 / 06</span><span className="hero-rule" /><span>Scroll to grow</span></div>
+          <div className="container hero-footnote"><span className="hero-rule" /><span>Scroll to grow</span></div>
         </section>
 
         <section className="intro-section section-light" aria-labelledby="intro-heading">
@@ -367,12 +426,14 @@ function HomePage({ onNavigate }: { onNavigate: (path: string) => void }) {
               <p>From the first sketch to the systems that keep a product healthy, we build with the whole journey in mind.</p>
             </div>
             <div className="service-grid">
-              {services.map((service) => <button className={`service-card${selectedService === service.title ? " is-expanded" : ""}`} type="button" key={service.number} aria-expanded={selectedService === service.title} aria-controls="service-detail" onClick={() => setSelectedService((current) => current === service.title ? null : service.title)}>
-                <div className="service-card-top"><span className="service-number">{service.number}</span><span className="service-icon" aria-hidden="true">{service.icon}</span></div>
-                <h3>{service.title}</h3><p>{service.description}</p>
-              </button>)}
+              {services.map((service) => <Fragment key={service.number}>
+                <button className={`service-card${selectedService === service.title ? " is-expanded" : ""}`} type="button" aria-expanded={selectedService === service.title} aria-controls="service-conversation-panel" onClick={() => setSelectedService((current) => current === service.title ? undefined : service.title)}>
+                  <div className="service-card-top"><span className="service-number">{service.number}</span><span className="service-icon" aria-hidden="true">{service.icon}</span></div>
+                  <h3>{service.title}</h3><p>{service.description}</p>
+                </button>
+                {selectedServiceDetails?.title === service.title && <section id="service-conversation-panel" className="service-detail" aria-labelledby="service-conversation-heading" aria-live="polite"><h3 id="service-conversation-heading">Start a conversation</h3><p>Selected service: <strong>{selectedServiceDetails.title}</strong>. {selectedServiceDetails.detail}</p><button className="button button-lime" type="button" onClick={() => openApplication(undefined, selectedServiceDetails.title)}>Open application form <span aria-hidden="true">↗</span></button></section>}
+              </Fragment>)}
             </div>
-            {selectedServiceDetails && <section id="service-detail" className="service-detail" aria-labelledby="service-detail-heading" aria-live="polite"><p className="overline">Selected service</p><h3 id="service-detail-heading">{selectedServiceDetails.title}</h3><p>{selectedServiceDetails.detail}</p><button className="arrow-link" type="button" onClick={() => openApplication()} >Start a conversation</button></section>}
           </div>
         </section>
 
@@ -406,26 +467,20 @@ function HomePage({ onNavigate }: { onNavigate: (path: string) => void }) {
 
         <section id="about" className="about-section section-light" aria-labelledby="about-heading">
           <div className="container about-grid"><div><p className="overline">01 — Foundations</p><h2 id="about-heading">Rooted here.<br /><em>Ready for anywhere.</em></h2><p className="large-copy">Garden City Tech is a software development and technology company creating digital solutions that help businesses innovate, grow, and make a lasting impact.</p></div>
-            <div className="values-stack"><div className="manifesto-card card-vision"><p className="overline">Vision</p><p>To be a globally trusted technology partner, recognized for delivering innovative solutions while empowering people to creatively impact future generations.</p></div><div className="manifesto-card card-mission"><p className="overline">Mission</p><p>To build technology and provide long-term support that helps businesses innovate, grow, and turn their vision into reality through collaboration, integrity, and technical excellence.</p></div><div className="values-card"><p className="overline">Values we bring</p><div className="value-tags"><span>People first</span><span>Innovation with purpose</span><span>Excellence</span><span>Integrity</span><span>Collaboration</span><span>Continuous learning</span><span>Communication</span></div></div></div>
+            <div className="values-stack"><div className="manifesto-card card-vision"><p className="overline">Vision</p><p>To be a globally trusted technology partner, recognized for delivering innovative solutions while empowering people to creatively impact future generations.</p></div><div className="manifesto-card card-mission"><p className="overline">Mission</p><p>To build technology and provide long-term support that helps businesses innovate, grow, and turn their vision into reality through collaboration, integrity, and technical excellence.</p></div><div className="values-card" onMouseLeave={() => setHoveredValue(undefined)}><p className="overline">Values we bring</p><div className="value-tags">{companyValues.map((value) => <button className="value-chip" type="button" key={value.name} aria-expanded={activeValueName === value.name} aria-pressed={selectedValue === value.name} aria-controls="value-message-panel" onMouseEnter={() => setHoveredValue(value.name)} onFocus={() => setFocusedValue(value.name)} onBlur={() => setFocusedValue((current) => current === value.name ? undefined : current)} onClick={() => { const nextValue = selectedValue === value.name ? undefined : value.name; setSelectedValue(nextValue); setFocusedValue(nextValue); if (!nextValue) setHoveredValue(undefined); }}>{value.name}</button>)}</div>{activeValueDetails && <section id="value-message-panel" className="value-message value-message-panel" aria-labelledby="value-message-heading" aria-live="polite" aria-atomic="true"><p className="overline overline-lime">Value in practice</p><h3 id="value-message-heading">{activeValueDetails.name}</h3><p>{activeValueDetails.message}</p></section>}</div></div>
           </div>
         </section>
 
-        {isApplicationOpen && <ApplicationSection selectedPackage={selectedPackage} onClose={() => setIsApplicationOpen(false)} />}
+        {isApplicationOpen && <ApplicationSection selectedPackage={selectedPackage} selectedService={selectedService} onClose={() => setIsApplicationOpen(false)} />}
 
         <section id="contact" className="cta-section section-dark" aria-labelledby="cta-heading"><div className="cta-logo-mark" aria-hidden="true"><img src="/assets/gc-logo-icon.png" alt="" width="180" height="180" /></div><div className="container cta-content"><p className="overline overline-lime">Your next chapter starts here</p><h2 id="cta-heading">Let’s grow<br /><em>something good.</em></h2><p>Tell us where you’re headed. We’ll bring curiosity, clarity, and the technical care to help you get there.</p><button className="button button-lime" type="button" onClick={() => openApplication()}>Apply for service</button></div></section>
       </main>
 
       {isStoryFilmOpen && <div className="video-modal" onKeyDown={(event: ReactKeyboardEvent<HTMLDivElement>) => { if (event.key === "Escape") closeStoryFilm(); }}>
         <button className="video-modal-backdrop" type="button" aria-label="Close story film dialog" onClick={closeStoryFilm} />
-        <div className="video-modal-dialog" ref={storyFilmDialogRef} role="dialog" aria-modal="true" aria-labelledby="story-film-heading" aria-describedby="story-film-description">
+        <div className="video-modal-dialog" ref={storyFilmDialogRef} role="dialog" aria-modal="true" aria-label="Garden City Tech story film">
           <button className="video-modal-close" type="button" onClick={closeStoryFilm} aria-label="Close story film dialog">×</button>
-          <p className="overline overline-lime">Story film</p>
-          <h2 id="story-film-heading">A glimpse of <em>what’s possible.</em></h2>
-          <p id="story-film-description" className="video-modal-note" role="status">A short view from Nepal, made to show where thoughtful technology can take you.</p>
-          <video className="story-film-video" src={STORY_FILM_SRC} controls autoPlay playsInline preload="metadata" aria-label="Garden City Tech story film video">
-            Your browser does not support embedded video. <a href={STORY_FILM_SRC}>Watch the story film</a>.
-          </video>
-          <button className="button button-lime" type="button" onClick={closeStoryFilm}>Close video</button>
+          <iframe className="story-film-embed" src={STORY_FILM_MODAL_SRC} title="Garden City Tech story film video" aria-label="Garden City Tech story film video" allow="autoplay; encrypted-media" />
         </div>
       </div>}
 
@@ -466,9 +521,9 @@ function MagneticPlayButton({ buttonRef, onActivate }: { buttonRef?: Ref<HTMLBut
   return <div className="play-control-layer" onPointerMove={handlePointerMove} onPointerLeave={() => setOffset({ x: 0, y: 0 })}><button ref={buttonRef} className="magnetic-play" type="button" aria-label="Play the Garden City Tech story film" style={reducedMotion ? undefined : { transform: `translate(${offset.x}px, ${offset.y}px)` }} onClick={onActivate}><span className="play-triangle" aria-hidden="true" /></button></div>;
 }
 
-function ApplicationSection({ selectedPackage, onClose }: { selectedPackage?: PackageName; onClose: () => void }) {
+function ApplicationSection({ selectedPackage, selectedService, onClose }: { selectedPackage?: PackageName; selectedService?: string; onClose: () => void }) {
   const [step, setStep] = useState(1);
-  const [form, setForm] = useState<ApplicationForm>({ ...initialForm, selectedPackage: selectedPackage ?? "" });
+  const [form, setForm] = useState<ApplicationForm>({ ...initialForm, selectedService: selectedService ?? "", selectedPackage: selectedPackage ?? "" });
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState("");
   const [fieldError, setFieldError] = useState("");
@@ -476,7 +531,13 @@ function ApplicationSection({ selectedPackage, onClose }: { selectedPackage?: Pa
   const [submitState, setSubmitState] = useState<"idle" | "loading" | "success" | "failure">("idle");
   const [submitMessage, setSubmitMessage] = useState("");
 
-  useEffect(() => { setForm((current) => ({ ...current, selectedPackage: selectedPackage ?? "" })); }, [selectedPackage]);
+  useEffect(() => {
+    setForm((current) => ({
+      ...current,
+      selectedService: selectedService ?? "",
+      selectedPackage: selectedPackage ?? "",
+    }));
+  }, [selectedPackage, selectedService]);
 
   const updateField = (field: keyof ApplicationForm, value: string | boolean) => {
     setForm((current) => ({ ...current, [field]: value }));
