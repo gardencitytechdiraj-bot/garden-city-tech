@@ -252,6 +252,7 @@ function HomePage({ onNavigate }: { onNavigate: (path: string) => void }) {
   const [activeSection, setActiveSection] = useState("home");
   const [headerCondensed, setHeaderCondensed] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const primaryNavRef = useRef<HTMLElement>(null);
   const storyFilmTriggerRef = useRef<HTMLButtonElement>(null);
   const storyFilmDialogRef = useRef<HTMLDivElement>(null);
   const wasMenuOpen = useRef(false);
@@ -296,8 +297,16 @@ function HomePage({ onNavigate }: { onNavigate: (path: string) => void }) {
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.key === "Escape") setMenuOpen(false);
     };
+    const onPointerDown = (event: globalThis.PointerEvent) => {
+      if (event.target instanceof Node && (primaryNavRef.current?.contains(event.target) || menuButtonRef.current?.contains(event.target))) return;
+      setMenuOpen(false);
+    };
     document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("pointerdown", onPointerDown);
+    };
   }, [menuOpen]);
 
   useEffect(() => {
@@ -354,13 +363,14 @@ function HomePage({ onNavigate }: { onNavigate: (path: string) => void }) {
             type="button"
             aria-expanded={menuOpen}
             aria-controls="primary-navigation"
+            aria-label={menuOpen ? "Close navigation" : "Open navigation"}
             ref={menuButtonRef}
             onClick={() => setMenuOpen((open) => !open)}
           >
-            <span className="sr-only">Toggle navigation</span>
-            <span aria-hidden="true">{menuOpen ? "Close" : "Menu"}</span>
+            <span className="sr-only">{menuOpen ? "Close navigation" : "Open navigation"}</span>
+            <span className="menu-toggle-mark" aria-hidden="true" />
           </button>
-          <nav id="primary-navigation" className={`primary-nav${menuOpen ? " is-open" : ""}`} aria-label="Primary navigation">
+          <nav id="primary-navigation" ref={primaryNavRef} className={`primary-nav${menuOpen ? " is-open" : ""}`} aria-label="Primary navigation">
             <button className={navButtonClass("home")} aria-current={activeSection === "home" ? "page" : undefined} type="button" onClick={() => scrollTo("home")}>Home</button>
             <button className={navButtonClass("services")} aria-current={activeSection === "services" ? "page" : undefined} type="button" onClick={() => scrollTo("services")}>Services</button>
             <button className={navButtonClass("about")} aria-current={activeSection === "about" ? "page" : undefined} type="button" onClick={() => scrollTo("about")}>About</button>
