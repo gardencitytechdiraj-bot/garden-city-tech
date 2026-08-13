@@ -20,6 +20,28 @@ const ALLOWED_MIME_TYPES = new Set([
 ]);
 const rateLimits = new Map<string, { count: number; resetAt: number }>();
 const localApplications: ApplicationRecord[] = [];
+const APPLICATION_HEADERS = [
+  "Reference",
+  "Created at",
+  "Client name",
+  "Contact person",
+  "Email",
+  "Phone",
+  "Country",
+  "Service",
+  "Package",
+  "Project description",
+  "Required pages/features",
+  "Existing website",
+  "Budget range",
+  "Preferred start date",
+  "Expected completion date",
+  "Files",
+  "Status",
+  "Owner",
+  "Notes",
+  "Consent recorded",
+];
 
 export type ApplicationRecord = {
   reference: string;
@@ -225,13 +247,45 @@ const createRecord = (form: ParsedForm, reference: string): ApplicationRecord =>
 };
 
 const getGoogleClients = () => {
-  const raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
   const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
   const sheetId = process.env.GOOGLE_SHEET_ID;
-  if (!raw || !folderId || !sheetId) return null;
-  const credentials = JSON.parse(raw) as { client_email: string; private_key: string };
-  const auth = new google.auth.GoogleAuth({ credentials, scopes: ["https://www.googleapis.com/auth/drive", "https://www.googleapis.com/auth/spreadsheets"] });
-  return { drive: google.drive({ version: "v3", auth }), sheets: google.sheets({ version: "v4", auth }), folderId, sheetId };
+  if (!folderId || !sheetId) return null;
+
+  const oauthClientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
+  const oauthClientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
+  const oauthRefreshToken = process.env.GOOGLE_OAUTH_REFRESH_TOKEN;
+  const raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+  const scopes = ["https://www.googleapis.com/auth/drive", "https://www.googleapis.com/auth/spreadsheets"];
+
+  if (oauthClientId && oauthClientSecret && oauthRefreshToken) {
+    const auth = new google.auth.OAuth2(oauthClientId, oauthClientSecret);
+    auth.setCredentials({ refresh_token: oauthRefreshToken });
+    return { drive: google.drive({ version: "v3", auth }), sheets: google.sheets({ version: "v4", auth }), folderId, sheetId };
+  } else if (raw) {
+    const credentials = JSON.parse(raw) as { client_email: string; private_key: string };
+    const auth = new google.auth.GoogleAuth({ credentials, scopes });
+    return { drive: google.drive({ version: "v3", auth }), sheets: google.sheets({ version: "v4", auth }), folderId, sheetId };
+  }
+  return null;
+};
+
+const ensureSheetHeaders = async (clients: ReturnType<typeof getGoogleClients>) => {
+  if (!clients) return;
+  const range = process.env.GOOGLE_SHEET_RANGE || "Sheet1!A:T";
+  const tab = range.includes("!") ? range.slice(0, range.indexOf("!")) : "Sheet1";
+  const headerRange = `${tab}!A1:T1`;
+  const existing = await clients.sheets.spreadsheets.values.get({ spreadsheetId: clients.sheetId, range: headerRange });
+  const firstRow = existing.data.values?.[0] || [];
+  if (firstRow[0] === APPLICATION_HEADERS[0] && firstRow.length >= APPLICATION_HEADERS.length) return;
+  if (firstRow.length > 0) {
+    throw new Error(`The ${tab} tab has unexpected headers. Keep the existing data safe and configure the first row with the Garden City application columns.`);
+  }
+  await clients.sheets.spreadsheets.values.update({
+    spreadsheetId: clients.sheetId,
+    range: headerRange,
+    valueInputOption: "USER_ENTERED",
+    requestBody: { values: [APPLICATION_HEADERS] },
+  });
 };
 
 const persistRecord = async (record: ApplicationRecord, form: ParsedForm) => {
@@ -244,6 +298,7 @@ const persistRecord = async (record: ApplicationRecord, form: ParsedForm) => {
     return record;
   }
 
+  await ensureSheetHeaders(clients);
   const uploaded = [] as ApplicationRecord["files"];
   for (const file of form.files) {
     const result = await clients.drive.files.create({
@@ -255,7 +310,7 @@ const persistRecord = async (record: ApplicationRecord, form: ParsedForm) => {
   }
   record.files = uploaded;
   const values = [[record.reference, record.createdAt, record.clientName, record.contactPerson, record.email, record.phone, record.country, record.selectedService, record.selectedPackage, record.projectDescription, record.requiredPages, record.existingWebsite, record.budgetRange, record.preferredStartDate, record.expectedCompletionDate, JSON.stringify(record.files), record.status, record.owner, record.notes, record.consentRecorded ? "Yes" : "No"]];
-  await clients.sheets.spreadsheets.values.append({ spreadsheetId: clients.sheetId, range: process.env.GOOGLE_SHEET_RANGE || "Applications!A:T", valueInputOption: "USER_ENTERED", requestBody: { values } });
+  await clients.sheets.spreadsheets.values.append({ spreadsheetId: clients.sheetId, range: process.env.GOOGLE_SHEET_RANGE || "Sheet1!A:T", valueInputOption: "USER_ENTERED", requestBody: { values } });
   return record;
 };
 
@@ -278,7 +333,7 @@ const notifyTeam = async (record: ApplicationRecord) => {
 const readRecords = async () => {
   const clients = getGoogleClients();
   if (!clients) return localApplications;
-  const result = await clients.sheets.spreadsheets.values.get({ spreadsheetId: clients.sheetId, range: process.env.GOOGLE_SHEET_RANGE || "Applications!A:T" });
+  const result = await clients.sheets.spreadsheets.values.get({ spreadsheetId: clients.sheetId, range: process.env.GOOGLE_SHEET_RANGE || "Sheet1!A:T" });
   return (result.data.values || []).slice(1).map((row) => ({ reference: row[0], createdAt: row[1], clientName: row[2], contactPerson: row[3], email: row[4], phone: row[5], country: row[6], selectedService: row[7], selectedPackage: row[8], projectDescription: row[9], requiredPages: row[10], existingWebsite: row[11], budgetRange: row[12], preferredStartDate: row[13], expectedCompletionDate: row[14], consent: true, files: JSON.parse(row[15] || "[]"), status: row[16] || "New", owner: row[17] || "", notes: row[18] || "", consentRecorded: row[19] !== "No" })) satisfies ApplicationRecord[];
 };
 
