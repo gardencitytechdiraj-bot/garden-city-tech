@@ -44,7 +44,8 @@ type AdminApplication = {
 };
 
 const STORY_FILM_ID = "ucsmwKrisFI";
-const STORY_FILM_MP4_SRC = "https://raw.githubusercontent.com/gardencitytechdiraj-bot/garden-city-tech/main/public/assets/mount-everest-himalayas-in-nepal-2026-01-22-22-57-24-utc.mp4";
+const STORY_FILM_BLOB_SRC = "https://szyqzykjfcnibf9f.public.blob.vercel-storage.com/story-film.mp4";
+const STORY_FILM_GITHUB_SRC = "https://raw.githubusercontent.com/gardencitytechdiraj-bot/garden-city-tech/main/public/assets/mount-everest-himalayas-in-nepal-2026-01-22-22-57-24-utc.mp4";
 const STORY_FILM_MODAL_SRC = `https://www.youtube-nocookie.com/embed/${STORY_FILM_ID}?autoplay=1&controls=1&playsinline=1&rel=0&modestbranding=1`;
 
 const services = [
@@ -248,15 +249,18 @@ function HomePage({ onNavigate }: { onNavigate: (path: string) => void }) {
   const [hoveredValue, setHoveredValue] = useState<string | undefined>();
   const [focusedValue, setFocusedValue] = useState<string | undefined>();
   const [isStoryFilmOpen, setIsStoryFilmOpen] = useState(false);
+  const [storyFilmPreviewSrc, setStoryFilmPreviewSrc] = useState(STORY_FILM_BLOB_SRC);
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("home");
   const [headerCondensed, setHeaderCondensed] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const primaryNavRef = useRef<HTMLElement>(null);
+  const storyFilmPreviewRef = useRef<HTMLVideoElement>(null);
   const storyFilmTriggerRef = useRef<HTMLButtonElement>(null);
   const storyFilmDialogRef = useRef<HTMLDivElement>(null);
   const wasMenuOpen = useRef(false);
   const wasStoryFilmOpen = useRef(false);
+  const storyFilmPreviewFallbackRef = useRef(false);
 
   useEffect(() => {
     const onScroll = () => setHeaderCondensed(window.scrollY > 24);
@@ -321,6 +325,23 @@ function HomePage({ onNavigate }: { onNavigate: (path: string) => void }) {
   }, [isStoryFilmOpen]);
 
   useEffect(() => {
+    const preview = storyFilmPreviewRef.current;
+    if (!preview) return;
+    const resumePreview = () => { void preview.play().catch(() => undefined); };
+    preview.addEventListener("canplay", resumePreview);
+    resumePreview();
+    return () => {
+      preview.removeEventListener("canplay", resumePreview);
+    };
+  }, [storyFilmPreviewSrc]);
+
+  const handleStoryFilmPreviewFailure = () => {
+    if (storyFilmPreviewFallbackRef.current) return;
+    storyFilmPreviewFallbackRef.current = true;
+    setStoryFilmPreviewSrc(STORY_FILM_GITHUB_SRC);
+  };
+
+  useEffect(() => {
     if (!isStoryFilmOpen && wasStoryFilmOpen.current) storyFilmTriggerRef.current?.focus();
     wasStoryFilmOpen.current = isStoryFilmOpen;
   }, [isStoryFilmOpen]);
@@ -367,8 +388,7 @@ function HomePage({ onNavigate }: { onNavigate: (path: string) => void }) {
             ref={menuButtonRef}
             onClick={() => setMenuOpen((open) => !open)}
           >
-            <span className="sr-only">{menuOpen ? "Close navigation" : "Open navigation"}</span>
-            <span className="menu-toggle-mark" aria-hidden="true" />
+            <span className="menu-toggle-label">Menu</span>
           </button>
           <nav id="primary-navigation" ref={primaryNavRef} className={`primary-nav${menuOpen ? " is-open" : ""}`} aria-label="Primary navigation">
             <button className={navButtonClass("home")} aria-current={activeSection === "home" ? "page" : undefined} type="button" onClick={() => scrollTo("home")}>Home</button>
@@ -397,7 +417,7 @@ function HomePage({ onNavigate }: { onNavigate: (path: string) => void }) {
             </div>
             <div className="hero-visual" aria-label="Garden City Tech story film">
               <div className="video-placeholder">
-                <video className="video-preview" src={STORY_FILM_MP4_SRC} autoPlay muted loop playsInline preload="metadata" aria-hidden="true" />
+                <video key={storyFilmPreviewSrc} ref={storyFilmPreviewRef} className="video-preview" src={storyFilmPreviewSrc} autoPlay muted loop playsInline preload="auto" poster="/assets/gc-logo-icon.png" onError={handleStoryFilmPreviewFailure} onStalled={handleStoryFilmPreviewFailure} aria-hidden="true" />
                 <div className="video-grid-lines" aria-hidden="true" />
                 <div className="video-label"><span className="status-dot" /> WHO WE ARE !</div>
                 <MagneticPlayButton buttonRef={storyFilmTriggerRef} onActivate={() => setIsStoryFilmOpen(true)} />
