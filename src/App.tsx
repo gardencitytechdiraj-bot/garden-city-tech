@@ -388,7 +388,7 @@ function HomePage({ onNavigate }: { onNavigate: (path: string) => void }) {
             ref={menuButtonRef}
             onClick={() => setMenuOpen((open) => !open)}
           >
-            <span className="menu-toggle-label">Menu</span>
+            <span className="menu-toggle-label">MENU</span>
           </button>
           <nav id="primary-navigation" ref={primaryNavRef} className={`primary-nav${menuOpen ? " is-open" : ""}`} aria-label="Primary navigation">
             <button className={navButtonClass("home")} aria-current={activeSection === "home" ? "page" : undefined} type="button" onClick={() => scrollTo("home")}>Home</button>
