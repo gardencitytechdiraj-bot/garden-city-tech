@@ -43,16 +43,17 @@ Copy `.env.example` to `.env` for local development. In Vercel, add the same val
 
 Required for production:
 
-- `GOOGLE_SERVICE_ACCOUNT_JSON` — service account JSON for the Drive/Sheets integration.
-- `GOOGLE_DRIVE_FOLDER_ID` — private folder where uploaded files are stored.
-- `GOOGLE_SHEET_ID` — spreadsheet used as the application database.
-- `GOOGLE_SHEET_RANGE` — usually `Applications!A:P` (reference, contact details, brief, timeline, and file references).
+- `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GOOGLE_OAUTH_REFRESH_TOKEN` — OAuth credentials for the `info@gardencitytech.net` Google account. The refresh token is a secret and must stay only in Vercel Environment Variables.
+- `GOOGLE_SERVICE_ACCOUNT_JSON` — optional legacy fallback; leave it empty when using the Garden City OAuth account.
+- `GOOGLE_DRIVE_FOLDER_ID` — private folder where uploaded files are stored (`1iujAXfgToma4JldDsLC4c_d2G86bXjk-`).
+- `GOOGLE_SHEET_ID` — spreadsheet used as the application database (`1bUYEIVue4dD9mdu11IVeP-kd6Pj3ihQ5mv4YvR5yUdA`).
+- `GOOGLE_SHEET_RANGE` — the exact target tab and columns, currently `Sheet1!A:T` for the Garden City Applications sheet.
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` — notification mail transport.
 - `SMTP_FROM` — verified sender, normally `info@gardencitytech.net`.
 - `NOTIFICATION_EMAIL` — notification destination, `info@gardencitytech.net`.
 - `ADMIN_PANEL_KEY` — long random key required by `/admin` and `GET /api/applications`.
 
-The Google service account must have Editor access to the target Sheet and Editor access to the private Drive folder. The folder should be shared with the staff account that will use the admin panel; files are never made public by the application.
+The Google OAuth account must be `info@gardencitytech.net` and must have Editor access to the target Sheet and private Drive folder. On the first successful submission, the application creates the 20-column header row in `Sheet1` if the sheet is still blank. Files are never made public by the application.
 
 ## Vercel + Cloudflare domain
 
@@ -64,7 +65,7 @@ The Google service account must have Editor access to the target Sheet and Edito
 
 ## Application workflow
 
-The multi-step application form validates required fields, validates the allow-listed file types and 10 MB limit, rejects the honeypot, and rate-limits to five submissions per IP per hour. A successful request receives a `GCT-YYYYMMDD-XXXX` reference number. In production, the API uploads files to private Google Drive storage, appends the application to Google Sheets, and sends a notification email.
+The multi-step application form validates required fields, validates the allow-listed file types and 4 MB attachment limit, rejects the honeypot, and rate-limits to five submissions per IP per hour. A successful request receives a `GCT-YYYYMMDD-XXXX` reference number. In production, the API uploads files to private Google Drive storage, appends the application to Google Sheets, and sends a notification email.
 
 `/admin` asks for the configured admin key and calls the protected application endpoint. Do not put the admin key in a public build or share it in a URL.
 

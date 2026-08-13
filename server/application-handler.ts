@@ -4,8 +4,10 @@ import nodemailer from "nodemailer";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { Readable } from "node:stream";
 
-const MAX_FILE_BYTES = 10 * 1024 * 1024;
-const MAX_REQUEST_BYTES = 12 * 1024 * 1024;
+// Keep headroom below the hosted request limit so rejected uploads return our
+// JSON error instead of a platform-generated plain-text 413 response.
+const MAX_FILE_BYTES = 4 * 1024 * 1024;
+const MAX_REQUEST_BYTES = 4.5 * 1024 * 1024;
 const ALLOWED_EXTENSIONS = new Set(["pdf", "doc", "docx", "png", "jpg", "jpeg", "zip"]);
 const ALLOWED_MIME_TYPES = new Set([
   "application/pdf",
@@ -18,6 +20,28 @@ const ALLOWED_MIME_TYPES = new Set([
 ]);
 const rateLimits = new Map<string, { count: number; resetAt: number }>();
 const localApplications: ApplicationRecord[] = [];
+const APPLICATION_HEADERS = [
+  "Reference",
+  "Created at",
+  "Client name",
+  "Contact person",
+  "Email",
+  "Phone",
+  "Country",
+  "Service",
+  "Package",
+  "Project description",
+  "Required pages/features",
+  "Existing website",
+  "Budget range",
+  "Preferred start date",
+  "Expected completion date",
+  "Files",
+  "Status",
+  "Owner",
+  "Notes",
+  "Consent recorded",
+];
 
 export type ApplicationRecord = {
   reference: string;
@@ -37,6 +61,10 @@ export type ApplicationRecord = {
   expectedCompletionDate: string;
   consent: boolean;
   files: Array<{ name: string; type: string; size: number; url?: string }>;
+  status: string;
+  owner: string;
+  notes: string;
+  consentRecorded: boolean;
 };
 
 type UploadedFile = {
@@ -92,6 +120,13 @@ const parseMultipart = (request: IncomingMessage): Promise<ParsedForm> =>
     const files: UploadedFile[] = [];
     const parser = Busboy({ headers: { "content-type": contentType }, limits: { files: 1, fileSize: MAX_FILE_BYTES } });
 
+    const contentLength = Number(request.headers["content-length"] ?? 0);
+    if (Number.isFinite(contentLength) && contentLength > MAX_REQUEST_BYTES) {
+      reject(new Error("That submission is too large. Please use an attachment smaller than 4 MB."));
+      request.resume();
+      return;
+    }
+
     const fail = (error: Error) => {
       if (!settled) {
         settled = true;
@@ -101,7 +136,10 @@ const parseMultipart = (request: IncomingMessage): Promise<ParsedForm> =>
 
     request.on("data", (chunk: Buffer) => {
       requestBytes += chunk.length;
-      if (requestBytes > MAX_REQUEST_BYTES) request.destroy(new Error("Request too large"));
+      if (requestBytes > MAX_REQUEST_BYTES) {
+        fail(new Error("That submission is too large. Please use an attachment smaller than 4 MB."));
+        request.resume();
+      }
     });
     request.on("error", (error) => fail(error));
     parser.on("field", (name, value) => {
@@ -114,7 +152,7 @@ const parseMultipart = (request: IncomingMessage): Promise<ParsedForm> =>
         fileBytes += chunk.length;
         if (fileBytes <= MAX_FILE_BYTES) chunks.push(chunk);
       });
-      stream.on("limit", () => fail(new Error("File exceeds the 10 MB limit")));
+      stream.on("limit", () => fail(new Error("File exceeds the 4 MB limit")));
       stream.on("error", (error) => fail(error));
       stream.on("end", () => {
         if (fileBytes > MAX_FILE_BYTES) return;
@@ -177,7 +215,7 @@ const validateForm = (form: ParsedForm) => {
     if (!ALLOWED_EXTENSIONS.has(extension) || !ALLOWED_MIME_TYPES.has(file.type)) {
       throw new Error("That file type is not supported. Upload PDF, DOC, DOCX, PNG, JPG, or ZIP files only.");
     }
-    if (file.buffer.length > MAX_FILE_BYTES) throw new Error("File exceeds the 10 MB limit.");
+    if (file.buffer.length > MAX_FILE_BYTES) throw new Error("File exceeds the 4 MB limit.");
   }
 };
 
@@ -201,17 +239,53 @@ const createRecord = (form: ParsedForm, reference: string): ApplicationRecord =>
     expectedCompletionDate: trimField(f, "expectedCompletionDate", 40),
     consent: true,
     files: form.files.map((file) => ({ name: file.name, type: file.type, size: file.buffer.length })),
+    status: "New",
+    owner: "",
+    notes: "",
+    consentRecorded: true,
   };
 };
 
 const getGoogleClients = () => {
-  const raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
   const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
   const sheetId = process.env.GOOGLE_SHEET_ID;
-  if (!raw || !folderId || !sheetId) return null;
-  const credentials = JSON.parse(raw) as { client_email: string; private_key: string };
-  const auth = new google.auth.GoogleAuth({ credentials, scopes: ["https://www.googleapis.com/auth/drive", "https://www.googleapis.com/auth/spreadsheets"] });
-  return { drive: google.drive({ version: "v3", auth }), sheets: google.sheets({ version: "v4", auth }), folderId, sheetId };
+  if (!folderId || !sheetId) return null;
+
+  const oauthClientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
+  const oauthClientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
+  const oauthRefreshToken = process.env.GOOGLE_OAUTH_REFRESH_TOKEN;
+  const raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+  const scopes = ["https://www.googleapis.com/auth/drive", "https://www.googleapis.com/auth/spreadsheets"];
+
+  if (oauthClientId && oauthClientSecret && oauthRefreshToken) {
+    const auth = new google.auth.OAuth2(oauthClientId, oauthClientSecret);
+    auth.setCredentials({ refresh_token: oauthRefreshToken });
+    return { drive: google.drive({ version: "v3", auth }), sheets: google.sheets({ version: "v4", auth }), folderId, sheetId };
+  } else if (raw) {
+    const credentials = JSON.parse(raw) as { client_email: string; private_key: string };
+    const auth = new google.auth.GoogleAuth({ credentials, scopes });
+    return { drive: google.drive({ version: "v3", auth }), sheets: google.sheets({ version: "v4", auth }), folderId, sheetId };
+  }
+  return null;
+};
+
+const ensureSheetHeaders = async (clients: ReturnType<typeof getGoogleClients>) => {
+  if (!clients) return;
+  const range = process.env.GOOGLE_SHEET_RANGE || "Sheet1!A:T";
+  const tab = range.includes("!") ? range.slice(0, range.indexOf("!")) : "Sheet1";
+  const headerRange = `${tab}!A1:T1`;
+  const existing = await clients.sheets.spreadsheets.values.get({ spreadsheetId: clients.sheetId, range: headerRange });
+  const firstRow = existing.data.values?.[0] || [];
+  if (firstRow[0] === APPLICATION_HEADERS[0] && firstRow.length >= APPLICATION_HEADERS.length) return;
+  if (firstRow.length > 0) {
+    throw new Error(`The ${tab} tab has unexpected headers. Keep the existing data safe and configure the first row with the Garden City application columns.`);
+  }
+  await clients.sheets.spreadsheets.values.update({
+    spreadsheetId: clients.sheetId,
+    range: headerRange,
+    valueInputOption: "USER_ENTERED",
+    requestBody: { values: [APPLICATION_HEADERS] },
+  });
 };
 
 const persistRecord = async (record: ApplicationRecord, form: ParsedForm) => {
@@ -224,6 +298,7 @@ const persistRecord = async (record: ApplicationRecord, form: ParsedForm) => {
     return record;
   }
 
+  await ensureSheetHeaders(clients);
   const uploaded = [] as ApplicationRecord["files"];
   for (const file of form.files) {
     const result = await clients.drive.files.create({
@@ -234,8 +309,8 @@ const persistRecord = async (record: ApplicationRecord, form: ParsedForm) => {
     uploaded.push({ name: file.name, type: file.type, size: file.buffer.length, url: result.data.webViewLink ?? `https://drive.google.com/open?id=${result.data.id}` });
   }
   record.files = uploaded;
-  const values = [[record.reference, record.createdAt, record.clientName, record.contactPerson, record.email, record.phone, record.country, record.selectedService, record.selectedPackage, record.projectDescription, record.requiredPages, record.existingWebsite, record.budgetRange, record.preferredStartDate, record.expectedCompletionDate, JSON.stringify(record.files)]];
-  await clients.sheets.spreadsheets.values.append({ spreadsheetId: clients.sheetId, range: process.env.GOOGLE_SHEET_RANGE || "Applications!A:P", valueInputOption: "USER_ENTERED", requestBody: { values } });
+  const values = [[record.reference, record.createdAt, record.clientName, record.contactPerson, record.email, record.phone, record.country, record.selectedService, record.selectedPackage, record.projectDescription, record.requiredPages, record.existingWebsite, record.budgetRange, record.preferredStartDate, record.expectedCompletionDate, JSON.stringify(record.files), record.status, record.owner, record.notes, record.consentRecorded ? "Yes" : "No"]];
+  await clients.sheets.spreadsheets.values.append({ spreadsheetId: clients.sheetId, range: process.env.GOOGLE_SHEET_RANGE || "Sheet1!A:T", valueInputOption: "USER_ENTERED", requestBody: { values } });
   return record;
 };
 
@@ -249,14 +324,17 @@ const notifyTeam = async (record: ApplicationRecord) => {
     return;
   }
   const transporter = nodemailer.createTransport({ host, port: Number(process.env.SMTP_PORT || 465), secure: Number(process.env.SMTP_PORT || 465) === 465, auth: { user, pass: password } });
-  await transporter.sendMail({ from: process.env.SMTP_FROM || user, to, subject: `New service application ${record.reference}`, text: [`Reference: ${record.reference}`, `Client: ${record.clientName}`, `Contact: ${record.contactPerson}`, `Email: ${record.email}`, `Service: ${record.selectedService}`, `Package: ${record.selectedPackage}`, `Start: ${record.preferredStartDate}`, `Completion: ${record.expectedCompletionDate}`, "", record.projectDescription].join("\n") });
+  const attachmentLinks = record.files.length
+    ? record.files.map((file) => `- ${file.name}: ${file.url || "stored in the Garden City Tech Drive folder"}`).join("\n")
+    : "None";
+  await transporter.sendMail({ from: process.env.SMTP_FROM || user, to, subject: `New service application ${record.reference}`, text: [`Reference: ${record.reference}`, `Client: ${record.clientName}`, `Contact: ${record.contactPerson}`, `Email: ${record.email}`, `Service: ${record.selectedService}`, `Package: ${record.selectedPackage}`, `Start: ${record.preferredStartDate}`, `Completion: ${record.expectedCompletionDate}`, "", "Attachments:", attachmentLinks, "", record.projectDescription].join("\n") });
 };
 
 const readRecords = async () => {
   const clients = getGoogleClients();
   if (!clients) return localApplications;
-  const result = await clients.sheets.spreadsheets.values.get({ spreadsheetId: clients.sheetId, range: process.env.GOOGLE_SHEET_RANGE || "Applications!A:P" });
-  return (result.data.values || []).slice(1).map((row) => ({ reference: row[0], createdAt: row[1], clientName: row[2], contactPerson: row[3], email: row[4], phone: row[5], country: row[6], selectedService: row[7], selectedPackage: row[8], projectDescription: row[9], requiredPages: row[10], existingWebsite: row[11], budgetRange: row[12], preferredStartDate: row[13], expectedCompletionDate: row[14], consent: true, files: JSON.parse(row[15] || "[]") })) satisfies ApplicationRecord[];
+  const result = await clients.sheets.spreadsheets.values.get({ spreadsheetId: clients.sheetId, range: process.env.GOOGLE_SHEET_RANGE || "Sheet1!A:T" });
+  return (result.data.values || []).slice(1).map((row) => ({ reference: row[0], createdAt: row[1], clientName: row[2], contactPerson: row[3], email: row[4], phone: row[5], country: row[6], selectedService: row[7], selectedPackage: row[8], projectDescription: row[9], requiredPages: row[10], existingWebsite: row[11], budgetRange: row[12], preferredStartDate: row[13], expectedCompletionDate: row[14], consent: true, files: JSON.parse(row[15] || "[]"), status: row[16] || "New", owner: row[17] || "", notes: row[18] || "", consentRecorded: row[19] !== "No" })) satisfies ApplicationRecord[];
 };
 
 export async function handleHealthRequest(_request: IncomingMessage, response: ServerResponse) {

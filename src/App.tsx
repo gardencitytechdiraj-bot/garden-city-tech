@@ -42,6 +42,8 @@ type AdminApplication = {
   status?: string;
 };
 
+const STORY_FILM_SRC = "https://raw.githubusercontent.com/gardencitytechdiraj-bot/garden-city-tech/main/public/assets/mount-everest-himalayas-in-nepal-2026-01-22-22-57-24-utc.mp4";
+
 const services = [
   {
     number: "01",
@@ -69,7 +71,7 @@ const services = [
     title: "SEO and Digital Marketing",
     description: "Practical strategies that improve discoverability and help the right audience find you.",
     detail: "We connect useful content, technical foundations, and measurable campaigns so the right people can find your work.",
-    icon: "↗",
+    icon: "+",
   },
   {
     number: "05",
@@ -181,7 +183,7 @@ const acceptedFileTypes = [
   "application/x-zip-compressed",
 ];
 const acceptedFileExtensions = [".pdf", ".doc", ".docx", ".png", ".jpg", ".jpeg", ".zip"];
-const maxFileSize = 10 * 1024 * 1024;
+const maxFileSize = 4 * 1024 * 1024;
 
 function App() {
   const [currentPath, setCurrentPath] = useState(() => window.location.pathname);
@@ -330,16 +332,17 @@ function HomePage({ onNavigate }: { onNavigate: (path: string) => void }) {
               <h1 id="hero-heading">Technology that <em>grows</em> with you.</h1>
               <p className="hero-intro">We design and build thoughtful digital products for people and organizations ready for their next chapter.</p>
               <div className="hero-actions">
-                <button className="button button-lime" type="button" onClick={() => openApplication()}>Start a conversation <span aria-hidden="true">↗</span></button>
-                <button className="text-button light-button" type="button" onClick={() => scrollTo("services")}>Explore services <span aria-hidden="true">↓</span></button>
+                <button className="button button-lime" type="button" onClick={() => openApplication()}>Start a conversation</button>
+                <button className="text-button light-button" type="button" onClick={() => scrollTo("services")}>Explore services <span aria-hidden="true">+</span></button>
               </div>
             </div>
-            <div className="hero-visual" aria-label="Video placeholder: a future Garden City Tech story film will be shown here">
+            <div className="hero-visual" aria-label="Garden City Tech story film">
               <div className="video-placeholder">
+                <video className="video-preview" src={STORY_FILM_SRC} autoPlay muted loop playsInline preload="metadata" aria-hidden="true" />
                 <div className="video-grid-lines" aria-hidden="true" />
                 <div className="video-label"><span className="status-dot" /> A glimpse of what’s possible</div>
                 <MagneticPlayButton buttonRef={storyFilmTriggerRef} onActivate={() => setIsStoryFilmOpen(true)} />
-                <span className="video-caption">Story film · coming soon</span>
+                <span className="video-caption">Story film · 10 seconds</span>
               </div>
             </div>
           </div>
@@ -352,7 +355,7 @@ function HomePage({ onNavigate }: { onNavigate: (path: string) => void }) {
             <div>
               <h2 id="intro-heading">Good technology is built by good <em>thinking.</em></h2>
               <p className="large-copy">Garden City Tech brings design, engineering, and long-term care together to turn ambitious ideas into dependable digital experiences.</p>
-              <button className="arrow-link" type="button" onClick={() => scrollTo("about")}>Meet the thinking behind the work <span aria-hidden="true">↘</span></button>
+              <button className="arrow-link" type="button" onClick={() => scrollTo("about")}>Meet the thinking behind the work</button>
             </div>
           </div>
         </section>
@@ -366,10 +369,10 @@ function HomePage({ onNavigate }: { onNavigate: (path: string) => void }) {
             <div className="service-grid">
               {services.map((service) => <button className={`service-card${selectedService === service.title ? " is-expanded" : ""}`} type="button" key={service.number} aria-expanded={selectedService === service.title} aria-controls="service-detail" onClick={() => setSelectedService((current) => current === service.title ? null : service.title)}>
                 <div className="service-card-top"><span className="service-number">{service.number}</span><span className="service-icon" aria-hidden="true">{service.icon}</span></div>
-                <h3>{service.title}</h3><p>{service.description}</p><span className="card-arrow" aria-hidden="true">↗</span>
+                <h3>{service.title}</h3><p>{service.description}</p>
               </button>)}
             </div>
-            {selectedServiceDetails && <section id="service-detail" className="service-detail" aria-labelledby="service-detail-heading" aria-live="polite"><p className="overline">Selected service</p><h3 id="service-detail-heading">{selectedServiceDetails.title}</h3><p>{selectedServiceDetails.detail}</p><button className="arrow-link" type="button" onClick={() => openApplication()} >Start a conversation <span aria-hidden="true">↗</span></button></section>}
+            {selectedServiceDetails && <section id="service-detail" className="service-detail" aria-labelledby="service-detail-heading" aria-live="polite"><p className="overline">Selected service</p><h3 id="service-detail-heading">{selectedServiceDetails.title}</h3><p>{selectedServiceDetails.detail}</p><button className="arrow-link" type="button" onClick={() => openApplication()} >Start a conversation</button></section>}
           </div>
         </section>
 
@@ -391,13 +394,13 @@ function HomePage({ onNavigate }: { onNavigate: (path: string) => void }) {
 
         <section className="process-section section-light" aria-labelledby="process-heading">
           <div className="container"><div className="section-heading split-heading"><div><p className="overline">How we work</p><h2 id="process-heading">A clear path from <em>idea</em> to impact.</h2></div><p>Six steps, shared openly. The right amount of structure to keep good work moving.</p></div>
-            <ol className="process-list">{processSteps.map(([number, title, description]) => <li key={number}><span className="process-number">{number}</span><div><h3>{title}</h3><p>{description}</p></div><span className="process-arrow" aria-hidden="true">↗</span></li>)}</ol>
+            <ol className="process-list">{processSteps.map(([number, title, description]) => <li key={number}><span className="process-number">{number}</span><div><h3>{title}</h3><p>{description}</p></div></li>)}</ol>
           </div>
         </section>
 
         <section id="packages" className="packages-section section-mint" aria-labelledby="packages-heading">
           <div className="container"><div className="section-heading package-heading"><p className="overline">Ways to begin</p><h2 id="packages-heading">Find your starting <em>point.</em></h2><p>No two organizations are alike. These packages are conversation starters, shaped to flex around the work.</p></div>
-            <div className="package-grid">{packages.map((pack) => <article className={`package-card${pack.recommended ? " is-recommended" : ""}`} key={pack.name}>{pack.recommended && <span className="package-recommended">Recommended</span>}<p className="package-eyebrow">{pack.eyebrow}</p><p className="package-ideal">Best for: {pack.idealFor}</p><h3>{pack.name}</h3><p>{pack.description}</p><ul>{pack.points.map((point) => <li key={point}><span aria-hidden="true">+</span>{point}</li>)}</ul><button className={`button ${pack.recommended ? "button-lime" : "button-outline"}`} type="button" onClick={() => openApplication(pack.name)}>Choose this package <span aria-hidden="true">↗</span></button></article>)}</div>
+            <div className="package-grid">{packages.map((pack) => <article className={`package-card${pack.recommended ? " is-recommended" : ""}`} key={pack.name}>{pack.recommended && <span className="package-recommended">Recommended</span>}<p className="package-eyebrow">{pack.eyebrow}</p><p className="package-ideal">Best for: {pack.idealFor}</p><h3>{pack.name}</h3><p>{pack.description}</p><ul>{pack.points.map((point) => <li key={point}><span aria-hidden="true">+</span>{point}</li>)}</ul><button className={`button ${pack.recommended ? "button-lime" : "button-outline"}`} type="button" onClick={() => openApplication(pack.name)}>Choose this package</button></article>)}</div>
           </div>
         </section>
 
@@ -409,7 +412,7 @@ function HomePage({ onNavigate }: { onNavigate: (path: string) => void }) {
 
         {isApplicationOpen && <ApplicationSection selectedPackage={selectedPackage} onClose={() => setIsApplicationOpen(false)} />}
 
-        <section id="contact" className="cta-section section-dark" aria-labelledby="cta-heading"><div className="cta-glow" aria-hidden="true" /><div className="container cta-content"><p className="overline overline-lime">Your next chapter starts here</p><h2 id="cta-heading">Let’s grow<br /><em>something good.</em></h2><p>Tell us where you’re headed. We’ll bring curiosity, clarity, and the technical care to help you get there.</p><button className="button button-lime" type="button" onClick={() => openApplication()}>Apply for service <span aria-hidden="true">↗</span></button></div></section>
+        <section id="contact" className="cta-section section-dark" aria-labelledby="cta-heading"><div className="cta-logo-mark" aria-hidden="true"><img src="/assets/gc-logo-icon.png" alt="" width="180" height="180" /></div><div className="container cta-content"><p className="overline overline-lime">Your next chapter starts here</p><h2 id="cta-heading">Let’s grow<br /><em>something good.</em></h2><p>Tell us where you’re headed. We’ll bring curiosity, clarity, and the technical care to help you get there.</p><button className="button button-lime" type="button" onClick={() => openApplication()}>Apply for service</button></div></section>
       </main>
 
       {isStoryFilmOpen && <div className="video-modal" onKeyDown={(event: ReactKeyboardEvent<HTMLDivElement>) => { if (event.key === "Escape") closeStoryFilm(); }}>
@@ -417,13 +420,16 @@ function HomePage({ onNavigate }: { onNavigate: (path: string) => void }) {
         <div className="video-modal-dialog" ref={storyFilmDialogRef} role="dialog" aria-modal="true" aria-labelledby="story-film-heading" aria-describedby="story-film-description">
           <button className="video-modal-close" type="button" onClick={closeStoryFilm} aria-label="Close story film dialog">×</button>
           <p className="overline overline-lime">Story film</p>
-          <h2 id="story-film-heading">A glimpse is <em>coming soon.</em></h2>
-          <p id="story-film-description" className="video-modal-note" role="status">The Garden City Tech story film is not available yet. We’re preparing something worth watching.</p>
-          <button className="button button-lime" type="button" onClick={closeStoryFilm}>Close this message <span aria-hidden="true">↗</span></button>
+          <h2 id="story-film-heading">A glimpse of <em>what’s possible.</em></h2>
+          <p id="story-film-description" className="video-modal-note" role="status">A short view from Nepal, made to show where thoughtful technology can take you.</p>
+          <video className="story-film-video" src={STORY_FILM_SRC} controls autoPlay playsInline preload="metadata" aria-label="Garden City Tech story film video">
+            Your browser does not support embedded video. <a href={STORY_FILM_SRC}>Watch the story film</a>.
+          </video>
+          <button className="button button-lime" type="button" onClick={closeStoryFilm}>Close video</button>
         </div>
       </div>}
 
-      <footer className="site-footer"><div className="container footer-grid"><div><img className="footer-logo" src="/assets/gc-logo-secondary.png" alt="Garden City Tech" width="960" height="455" /><p>Rooted in Nepal. Building technology for the world.</p></div><div className="footer-nav"><p className="overline">Explore</p><button type="button" onClick={() => scrollTo("services")}>Services</button><button type="button" onClick={() => scrollTo("about")}>About</button><button type="button" onClick={() => scrollTo("packages")}>Packages</button></div><div className="footer-nav"><p className="overline">Start here</p><button type="button" onClick={() => openApplication()}>Apply for service</button><button type="button" onClick={() => scrollTo("contact")}>Contact</button><button className="admin-link" type="button" onClick={() => onNavigate("/admin")}>Admin access <span aria-hidden="true">↗</span></button></div></div><div className="container footer-bottom"><span>© 2026 Garden City Tech Pvt. Ltd.</span><span>Technology that grows with you.</span></div></footer>
+      <footer className="site-footer"><div className="container footer-grid"><div><img className="footer-logo" src="/assets/gc-logo-secondary.png" alt="Garden City Tech" width="960" height="455" /><p>Rooted in Nepal. Building technology for the world.</p></div><div className="footer-nav"><p className="overline">Explore</p><button type="button" onClick={() => scrollTo("services")}>Services</button><button type="button" onClick={() => scrollTo("about")}>About</button><button type="button" onClick={() => scrollTo("packages")}>Packages</button></div><div className="footer-nav"><p className="overline">Start here</p><button type="button" onClick={() => openApplication()}>Apply for service</button><button type="button" onClick={() => scrollTo("contact")}>Contact</button><button className="admin-link" type="button" onClick={() => onNavigate("/admin")}>Admin access</button></div></div><div className="container footer-bottom"><span>© 2026 Garden City Tech Pvt. Ltd.</span><span>Technology that grows with you.</span></div></footer>
     </div>
   );
 }
@@ -484,7 +490,7 @@ function ApplicationSection({ selectedPackage, onClose }: { selectedPackage?: Pa
     const extension = `.${selectedFile.name.split(".").pop()?.toLowerCase() ?? ""}`;
     if ((!acceptedFileTypes.includes(selectedFile.type) && !acceptedFileExtensions.includes(extension)) || selectedFile.size > maxFileSize) {
       setFile(null);
-      setFileError(selectedFile.size > maxFileSize ? "That file is larger than 10 MB. Please choose a smaller file." : "Please upload a PDF, DOC, DOCX, PNG, JPG, or ZIP file.");
+      setFileError(selectedFile.size > maxFileSize ? "That file is larger than 4 MB. Please choose a smaller file." : "Please upload a PDF, DOC, DOCX, PNG, JPG, or ZIP file.");
       event.target.value = "";
       return;
     }
@@ -553,7 +559,16 @@ function ApplicationSection({ selectedPackage, onClose }: { selectedPackage?: Pa
     if (file) payload.append("attachment", file);
     try {
       const response = await fetch("/api/applications", { method: "POST", body: payload });
-      const data = await response.json() as { reference?: string; error?: string };
+      const responseText = await response.text();
+      let data: { reference?: string; error?: string } = {};
+      try {
+        data = responseText ? JSON.parse(responseText) as { reference?: string; error?: string } : {};
+      } catch {
+        if (response.status === 413 || /request entity too large|payload too large/i.test(responseText)) {
+          throw new Error("That attachment is too large for the hosted form. Please choose a file smaller than 4 MB.");
+        }
+        throw new Error("The application service returned an unexpected response. Please try again in a moment.");
+      }
       if (!response.ok) throw new Error(data.error || "Application request failed");
       setSubmitState("success");
       setSubmitMessage(data.reference ? `Your reference number is ${data.reference}. Keep it for your records.` : "Thank you. Your application is on its way to our team.");
@@ -572,7 +587,7 @@ function ApplicationSection({ selectedPackage, onClose }: { selectedPackage?: Pa
             {step === 1 && <fieldset><legend>Tell us about you</legend><p className="fieldset-intro">A few basics are enough to start.</p><div className="field-grid"><Field id="client-name" name="clientName" label="Client or organization name" required invalid={isInvalid("client-name")} value={form.clientName} onChange={(value) => updateField("clientName", value)} autoComplete="organization" /><Field id="contact-person" name="contactPerson" label="Contact person" required invalid={isInvalid("contact-person")} value={form.contactPerson} onChange={(value) => updateField("contactPerson", value)} autoComplete="name" /><Field id="email" name="email" label="Email address" required invalid={isInvalid("email")} type="email" value={form.email} onChange={(value) => updateField("email", value)} autoComplete="email" /><Field id="phone" name="phone" label="Phone number" required invalid={isInvalid("phone")} type="tel" value={form.phone} onChange={(value) => updateField("phone", value)} autoComplete="tel" /><Field id="country" name="country" label="Country" required invalid={isInvalid("country")} value={form.country} onChange={(value) => updateField("country", value)} autoComplete="country-name" /></div></fieldset>}
             {step === 2 && <fieldset><legend>Shape the brief</legend><p className="fieldset-intro">Choose the path that feels closest. We’ll refine it together.</p><div className="field-grid"><label className="field wide" htmlFor="selected-service"><span id="selected-service-label">Selected service <b aria-hidden="true">*</b></span><select id="selected-service" name="selectedService" required aria-invalid={isInvalid("selected-service")} aria-describedby="selected-service-description" aria-labelledby="selected-service-label" value={form.selectedService} onChange={(event) => updateField("selectedService", event.target.value)}><option value="">Select a service</option>{services.map((service) => <option key={service.title} value={service.title}>{service.title}</option>)}</select><span id="selected-service-description" className="sr-only">Required. Choose the service you want to discuss.</span></label><label className="field wide" htmlFor="selected-package"><span id="selected-package-label">Selected package <b aria-hidden="true">*</b></span><select id="selected-package" name="selectedPackage" required aria-invalid={isInvalid("selected-package")} aria-describedby="selected-package-description" aria-labelledby="selected-package-label" value={form.selectedPackage} onChange={(event) => updateField("selectedPackage", event.target.value as PackageName)}><option value="">Select a package</option>{packages.map((pack) => <option key={pack.name} value={pack.name}>{pack.name} — {pack.eyebrow}</option>)}</select><span id="selected-package-description" className="sr-only">Required. Choose a starting package.</span></label></div></fieldset>}
             {step === 3 && <fieldset><legend>Give us the details</legend><p className="fieldset-intro">The more context you share, the more useful our first response can be.</p><label className="field wide" htmlFor="project-description"><span id="project-description-label">Project description <b aria-hidden="true">*</b></span><textarea id="project-description" name="projectDescription" rows={5} required aria-invalid={isInvalid("project-description")} aria-describedby="project-description-description" aria-labelledby="project-description-label" value={form.projectDescription} onChange={(event) => updateField("projectDescription", event.target.value)} placeholder="What are you hoping to create, improve, or change?" /><span id="project-description-description" className="sr-only">Required. Describe what you are hoping to create, improve, or change.</span></label><label className="field wide" htmlFor="required-pages"><span id="required-pages-label">Required pages or features <b aria-hidden="true">*</b></span><textarea id="required-pages" name="requiredPages" rows={3} required aria-invalid={isInvalid("required-pages")} aria-describedby="required-pages-description" aria-labelledby="required-pages-label" value={form.requiredPages} onChange={(event) => updateField("requiredPages", event.target.value)} placeholder="Which pages, features, or capabilities should we plan for?" /><span id="required-pages-description" className="sr-only">Required. List the pages, features, or capabilities to plan for.</span></label><div className="field-grid"><Field id="existing-website" name="website" label="Existing website URL" invalid={isInvalid("existing-website")} value={form.website} onChange={(value) => updateField("website", value)} type="url" /><label className="field" htmlFor="budget-range"><span id="budget-range-label">Budget range <b aria-hidden="true">*</b></span><select id="budget-range" name="budgetRange" required aria-invalid={isInvalid("budget-range")} aria-describedby="budget-range-description" aria-labelledby="budget-range-label" value={form.budgetRange} onChange={(event) => updateField("budgetRange", event.target.value)}><option value="">Select an option</option><option>Not sure yet</option><option>To discuss</option><option>I’ll share a range after our first conversation</option></select><span id="budget-range-description" className="sr-only">Required. Choose the budget range that best fits.</span></label><Field id="preferred-start-date" name="preferredStartDate" label="Preferred start date" required invalid={isInvalid("preferred-start-date")} type="date" value={form.preferredStartDate} onChange={(value) => updateField("preferredStartDate", value)} /><Field id="expected-completion-date" name="expectedCompletionDate" label="Expected completion date" required invalid={isInvalid("expected-completion-date")} type="date" value={form.expectedCompletionDate} onChange={(value) => updateField("expectedCompletionDate", value)} /></div></fieldset>}
-            {step === 4 && <fieldset><legend>Review & send</legend><p className="fieldset-intro">One last thing: attach a useful brief or reference if you have one.</p><label className="file-drop" htmlFor="application-attachment"><span className="file-icon" aria-hidden="true">↥</span><span><strong>{file ? file.name : "Upload a brief or reference"}</strong><small>PDF, DOC, DOCX, PNG, JPG, or ZIP · max 10 MB</small></span><input id="application-attachment" name="attachment" type="file" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.zip" aria-invalid={Boolean(fileError)} aria-describedby={fileError ? "attachment-description attachment-error" : "attachment-description"} onChange={onFileChange} /><span id="attachment-description" className="sr-only">Optional. PDF, DOC, DOCX, PNG, JPG, or ZIP, maximum 10 MB.</span></label>{fileError && <p id="attachment-error" className="form-error" role="alert">{fileError}</p>}<div className="review-card"><div><span>Organization</span><strong>{form.clientName || "—"}</strong></div><div><span>Service</span><strong>{form.selectedService || "—"}</strong></div><div><span>Package</span><strong>{form.selectedPackage || "—"}</strong></div><div><span>Email</span><strong>{form.email || "—"}</strong></div></div><label className="consent-check" htmlFor="consent"><input id="consent" name="consent" type="checkbox" required aria-invalid={isInvalid("consent")} aria-describedby="consent-description" checked={form.consent} onChange={(event) => updateField("consent", event.target.checked)} /><span>I agree to be contacted by Garden City Tech about this application.</span><span id="consent-description" className="sr-only">Required. Agree to be contacted about this application.</span></label></fieldset>}
+            {step === 4 && <fieldset><legend>Review & send</legend><p className="fieldset-intro">One last thing: attach a useful brief or reference if you have one.</p><label className="file-drop" htmlFor="application-attachment"><span className="file-icon" aria-hidden="true">↥</span><span><strong>{file ? file.name : "Upload a brief or reference"}</strong><small>PDF, DOC, DOCX, PNG, JPG, or ZIP · max 4 MB</small></span><input id="application-attachment" name="attachment" type="file" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.zip" aria-invalid={Boolean(fileError)} aria-describedby={fileError ? "attachment-description attachment-error" : "attachment-description"} onChange={onFileChange} /><span id="attachment-description" className="sr-only">Optional. PDF, DOC, DOCX, PNG, JPG, or ZIP, maximum 4 MB.</span></label>{fileError && <p id="attachment-error" className="form-error" role="alert">{fileError}</p>}<div className="review-card"><div><span>Organization</span><strong>{form.clientName || "—"}</strong></div><div><span>Service</span><strong>{form.selectedService || "—"}</strong></div><div><span>Package</span><strong>{form.selectedPackage || "—"}</strong></div><div><span>Email</span><strong>{form.email || "—"}</strong></div></div><label className="consent-check" htmlFor="consent"><input id="consent" name="consent" type="checkbox" required aria-invalid={isInvalid("consent")} aria-describedby="consent-description" checked={form.consent} onChange={(event) => updateField("consent", event.target.checked)} /><span>I agree to be contacted by Garden City Tech about this application.</span><span id="consent-description" className="sr-only">Required. Agree to be contacted about this application.</span></label></fieldset>}
             {fieldError && <p id="application-error" className="form-error" role="alert">{fieldError}</p>}{submitState === "failure" && <p id="submission-error" className="form-error" role="alert">{submitMessage}</p>}<div className="form-actions">{step > 1 && <button className="text-button light-button" type="button" onClick={previousStep}>← Back</button>}{step < 4 ? <button className="button button-lime" type="button" onClick={nextStep}>Continue <span aria-hidden="true">→</span></button> : <button className="button button-lime" type="submit" disabled={submitState === "loading"}>{submitState === "loading" ? "Sending…" : "Send application ↗"}</button>}</div>
           </form></div></div></section>;
 }
@@ -600,7 +615,7 @@ function AdminPanel({ onBack }: { onBack: () => void }) {
     } catch { setApplications([]); setStatus("failure"); setMessage("We couldn’t verify that access key or load the applications."); }
   };
 
-  return <div className="admin-shell"><header className="admin-header"><button className="brand-lockup" type="button" onClick={onBack}><img className="brand-logo" src="/assets/gc-logo-secondary.png" alt="Garden City Tech" width="960" height="455" /></button><button className="text-button" type="button" onClick={onBack}>Back to site ↗</button></header><main className="admin-main"><div className="admin-intro"><p className="overline">Private workspace</p><h1>Applications<br /><em>in view.</em></h1><p>Review service applications submitted through the Garden City Tech site.</p></div><form className="access-form" onSubmit={loadApplications}><label className="field"><span>Access key</span><input type="password" value={accessKey} onChange={(event) => setAccessKey(event.target.value)} autoComplete="current-password" required /></label><button className="button button-dark" type="submit" disabled={status === "loading"}>{status === "loading" ? "Checking…" : "Unlock applications ↗"}</button></form><p className={`admin-message ${status === "failure" ? "is-error" : ""}`} role={status === "failure" ? "alert" : "status"}>{message}</p>{status === "success" && <div className="application-table-wrap"><table className="application-table"><caption className="sr-only">Submitted applications</caption><thead><tr><th>Date</th><th>Applicant</th><th>Organization</th><th>Service</th><th>Package</th><th>Status</th></tr></thead><tbody>{applications.length === 0 ? <tr><td colSpan={6}>No applications yet.</td></tr> : applications.map((application, index) => <tr key={application.reference ?? index}><td>{application.createdAt ? new Date(application.createdAt).toLocaleDateString() : "—"}</td><td><strong>{application.contactPerson || "—"}</strong><small>{application.email || "—"}</small></td><td>{application.clientName || "—"}</td><td>{application.selectedService || "—"}</td><td>{application.selectedPackage || "—"}</td><td><span className="status-pill">New</span></td></tr>)}</tbody></table></div>}</main></div>;
+  return <div className="admin-shell"><header className="admin-header"><button className="brand-lockup" type="button" onClick={onBack}><img className="brand-logo" src="/assets/gc-logo-secondary.png" alt="Garden City Tech" width="960" height="455" /></button><button className="text-button" type="button" onClick={onBack}>Back to site ↗</button></header><main className="admin-main"><div className="admin-intro"><p className="overline">Private workspace</p><h1>Applications<br /><em>in view.</em></h1><p>Review service applications submitted through the Garden City Tech site.</p></div><form className="access-form" onSubmit={loadApplications}><label className="field"><span>Access key</span><input type="password" value={accessKey} onChange={(event) => setAccessKey(event.target.value)} autoComplete="current-password" required /></label><button className="button button-dark" type="submit" disabled={status === "loading"}>{status === "loading" ? "Checking…" : "Unlock applications ↗"}</button></form><p className={`admin-message ${status === "failure" ? "is-error" : ""}`} role={status === "failure" ? "alert" : "status"}>{message}</p>{status === "success" && <div className="application-table-wrap"><table className="application-table"><caption className="sr-only">Submitted applications</caption><thead><tr><th>Date</th><th>Applicant</th><th>Organization</th><th>Service</th><th>Package</th><th>Status</th></tr></thead><tbody>{applications.length === 0 ? <tr><td colSpan={6}>No applications yet.</td></tr> : applications.map((application, index) => (<tr key={application.reference ?? index}><td>{application.createdAt ? new Date(application.createdAt).toLocaleDateString() : "—"}</td><td><strong>{application.contactPerson || "—"}</strong><small>{application.email || "—"}</small></td><td>{application.clientName || "—"}</td><td>{application.selectedService || "—"}</td><td>{application.selectedPackage || "—"}</td><td><span className="status-pill">{application.status || "New"}</span></td></tr>))}</tbody></table></div>}</main></div>;
 }
 
 export default App;
