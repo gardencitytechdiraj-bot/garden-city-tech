@@ -688,10 +688,6 @@ function AdminRoute({ path, onNavigate }: { path: string; onNavigate: (path: str
     setAuthState("authenticated");
     goDashboard();
   }, [goDashboard]);
-  const handleLoginSuccess = useCallback(() => {
-    setAuthState("authenticated");
-    goDashboard();
-  }, [goDashboard]);
 
   useEffect(() => {
     let active = true;
