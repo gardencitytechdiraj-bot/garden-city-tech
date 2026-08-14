@@ -3,6 +3,7 @@ import { google } from "googleapis";
 import nodemailer from "nodemailer";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { Readable } from "node:stream";
+import { isAdminSessionRequest } from "./admin-auth.js";
 
 // Keep headroom below the hosted request limit so rejected uploads return our
 // JSON error instead of a platform-generated plain-text 413 response.
@@ -349,7 +350,8 @@ export async function handleApplicationsRequest(request: IncomingMessage, respon
   }
   if (request.method === "GET") {
     const key = request.headers["x-admin-key"] || new URL(request.url || "/", "http://localhost").searchParams.get("accessKey");
-    if (!process.env.ADMIN_PANEL_KEY || key !== process.env.ADMIN_PANEL_KEY) {
+    const hasLegacyKey = Boolean(process.env.ADMIN_PANEL_KEY && key === process.env.ADMIN_PANEL_KEY);
+    if (!hasLegacyKey && !isAdminSessionRequest(request)) {
       json(response, 401, { error: "Unauthorized" });
       return;
     }

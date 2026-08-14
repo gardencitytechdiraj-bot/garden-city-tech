@@ -5,6 +5,11 @@ import {
   handleApplicationsRequest,
   handleHealthRequest,
 } from "./server/application-handler";
+import {
+  handleAdminLoginRequest,
+  handleAdminLogoutRequest,
+  handleAdminSessionRequest,
+} from "./server/admin-auth";
 
 function localApiPlugin(): Plugin {
   return {
@@ -15,6 +20,15 @@ function localApiPlugin(): Plugin {
       });
       server.middlewares.use("/api/applications", (request, response) => {
         void handleApplicationsRequest(request, response);
+      });
+      server.middlewares.use("/api/admin/login", (request, response) => {
+        void handleAdminLoginRequest(request, response);
+      });
+      server.middlewares.use("/api/admin/session", (request, response) => {
+        handleAdminSessionRequest(request, response);
+      });
+      server.middlewares.use("/api/admin/logout", (request, response) => {
+        handleAdminLogoutRequest(request, response);
       });
     },
   };
