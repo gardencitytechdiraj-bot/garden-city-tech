@@ -273,6 +273,9 @@ em { color: var(--forest); font-family: var(--font-brand); font-style: normal; f
 .footer-grid { display: grid; grid-template-columns: 1.5fr 0.7fr 0.7fr; gap: 40px; padding: 72px 0; }
 .footer-logo { width: 240px; height: auto; margin-bottom: 22px; padding: 16px; border: 1px solid rgba(255, 255, 255, 0.72); border-radius: 18px; background: rgba(236, 255, 240, 0.82); box-shadow: 0 16px 34px rgba(1, 37, 36, 0.12); backdrop-filter: blur(12px) saturate(115%); -webkit-backdrop-filter: blur(12px) saturate(115%); object-fit: contain; }
 .footer-grid p:not(.overline) { max-width: 280px; color: rgba(236, 255, 240, 0.65); font-size: 0.82rem; }
+.footer-contact { display: flex; flex-direction: column; gap: 6px; margin-top: 18px; color: rgba(236, 255, 240, 0.72); font-size: 0.82rem; font-style: normal; line-height: 1.5; }
+.footer-contact a { color: var(--mint); text-decoration: underline; text-decoration-color: rgba(236, 255, 240, 0.42); text-underline-offset: 4px; }
+.footer-contact a:hover { color: var(--lime); text-decoration-color: currentColor; }
 .footer-nav { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
 .footer-nav button { min-height: 40px; padding: 7px 0; color: var(--mint); background: transparent; font-size: 0.8rem; }
 .footer-nav button:hover { color: var(--lime); }
