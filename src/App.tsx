@@ -684,6 +684,14 @@ function AdminRoute({ path, onNavigate }: { path: string; onNavigate: (path: str
   const goBack = useCallback(() => onNavigate("/"), [onNavigate]);
   const goLogin = useCallback(() => onNavigate("/admin/login"), [onNavigate]);
   const goDashboard = useCallback(() => onNavigate("/admin/dashboard"), [onNavigate]);
+  const handleLoginSuccess = useCallback(() => {
+    setAuthState("authenticated");
+    goDashboard();
+  }, [goDashboard]);
+  const handleLoginSuccess = useCallback(() => {
+    setAuthState("authenticated");
+    goDashboard();
+  }, [goDashboard]);
 
   useEffect(() => {
     let active = true;
@@ -705,7 +713,7 @@ function AdminRoute({ path, onNavigate }: { path: string; onNavigate: (path: str
   if (authState === "checking" || (authState === "authenticated" && path === "/admin/login") || (authState === "unauthenticated" && path !== "/admin/login")) {
     return <AdminLoading />;
   }
-  if (authState === "unauthenticated") return <AdminLoginPage onBack={goBack} onSuccess={goDashboard} />;
+  if (authState === "unauthenticated") return <AdminLoginPage onBack={goBack} onSuccess={handleLoginSuccess} />;
   return <AdminDashboard onBack={goBack} onLogout={goLogin} />;
 }
 
