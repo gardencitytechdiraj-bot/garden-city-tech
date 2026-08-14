@@ -51,7 +51,10 @@ Required for production:
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` — notification mail transport.
 - `SMTP_FROM` — verified sender, normally `info@gardencitytech.net`.
 - `NOTIFICATION_EMAIL` — notification destination, `info@gardencitytech.net`.
-- `ADMIN_PANEL_KEY` — long random key required by `/admin` and `GET /api/applications`.
+- `ADMIN_USERNAME` — the single username accepted by `/admin/login`.
+- `ADMIN_PASSWORD_HASH` — a bcrypt hash of the admin password. Never commit or deploy the plaintext password.
+- `ADMIN_SESSION_SECRET` — a long random server-only secret used to sign the secure httpOnly session cookie.
+- `ADMIN_PANEL_KEY` — optional legacy key retained for older admin clients; new use should go through the protected login flow.
 
 The Google OAuth account must be `info@gardencitytech.net` and must have Editor access to the target Sheet and private Drive folder. On the first successful submission, the application creates the 20-column header row in `Sheet1` if the sheet is still blank. Files are never made public by the application.
 
@@ -67,7 +70,7 @@ The Google OAuth account must be `info@gardencitytech.net` and must have Editor 
 
 The multi-step application form validates required fields, validates the allow-listed file types and 4 MB attachment limit, rejects the honeypot, and rate-limits to five submissions per IP per hour. A successful request receives a `GCT-YYYYMMDD-XXXX` reference number. In production, the API uploads files to private Google Drive storage, appends the application to Google Sheets, and sends a notification email.
 
-`/admin` asks for the configured admin key and calls the protected application endpoint. Do not put the admin key in a public build or share it in a URL.
+`/admin/login` validates the single configured account through `POST /api/admin/login`, then redirects to the protected `/admin/dashboard`. The server sets an httpOnly, signed session cookie; `GET /api/applications` accepts that session and keeps the legacy `ADMIN_PANEL_KEY` header fallback for migration compatibility. Do not put credentials or keys in the public build or share them in a URL.
 
 ## Brand and assets
 

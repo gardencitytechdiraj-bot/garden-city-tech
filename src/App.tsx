@@ -5,6 +5,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent,
   type Ref,
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -229,14 +230,13 @@ function App() {
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
 
-  const navigate = (path: string) => {
+  const navigate = useCallback((path: string) => {
     window.history.pushState({}, "", path);
     setCurrentPath(path);
-  };
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
 
-  if (currentPath === "/admin") {
-    return <AdminPanel onBack={() => navigate("/")} />;
-  }
+  if (currentPath.startsWith("/admin")) return <AdminRoute path={currentPath} onNavigate={navigate} />;
 
   return <HomePage onNavigate={navigate} />;
 }
@@ -679,24 +679,121 @@ function Field({ id, name, label, value, onChange, type = "text", required = fal
   return <label className={`field${wide ? " wide" : ""}`} htmlFor={id}><span id={labelId}>{label} {required && <b aria-hidden="true">*</b>}</span><input id={id} name={name} type={type} value={value} required={required} aria-invalid={invalid} aria-describedby={descriptionId} aria-labelledby={labelId} autoComplete={autoComplete} onChange={(event) => onChange(event.target.value)} />{invalid && <span id={descriptionId} className="field-error" role="alert">Please complete this field.</span>}</label>;
 }
 
-function AdminPanel({ onBack }: { onBack: () => void }) {
-  const [accessKey, setAccessKey] = useState("");
-  const [applications, setApplications] = useState<AdminApplication[]>([]);
-  const [status, setStatus] = useState<"idle" | "loading" | "success" | "failure">("idle");
-  const [message, setMessage] = useState("Enter the access key to view submitted applications.");
+function AdminRoute({ path, onNavigate }: { path: string; onNavigate: (path: string) => void }) {
+  const [authState, setAuthState] = useState<"checking" | "authenticated" | "unauthenticated">("checking");
+  const goBack = useCallback(() => onNavigate("/"), [onNavigate]);
+  const goLogin = useCallback(() => onNavigate("/admin/login"), [onNavigate]);
+  const goDashboard = useCallback(() => onNavigate("/admin/dashboard"), [onNavigate]);
 
-  const loadApplications = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault(); setStatus("loading"); setMessage("");
+  useEffect(() => {
+    let active = true;
+    fetch("/api/admin/session", { credentials: "same-origin", cache: "no-store" })
+      .then((response) => response.ok)
+      .catch(() => false)
+      .then((authenticated) => {
+        if (active) setAuthState(authenticated ? "authenticated" : "unauthenticated");
+      });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (authState === "unauthenticated" && path !== "/admin/login") goLogin();
+    if (authState === "authenticated" && (path === "/admin/login" || path === "/admin")) goDashboard();
+    if (authState === "authenticated" && path !== "/admin/login" && path !== "/admin/dashboard" && path !== "/admin") goDashboard();
+  }, [authState, goDashboard, goLogin, path]);
+
+  if (authState === "checking" || (authState === "authenticated" && path === "/admin/login") || (authState === "unauthenticated" && path !== "/admin/login")) {
+    return <AdminLoading />;
+  }
+  if (authState === "unauthenticated") return <AdminLoginPage onBack={goBack} onSuccess={goDashboard} />;
+  return <AdminDashboard onBack={goBack} onLogout={goLogin} />;
+}
+
+function AdminLoading() {
+  return <main className="admin-auth-shell"><div className="admin-auth-card admin-loading" role="status">Checking private workspace…</div></main>;
+}
+
+function AdminLoginPage({ onBack, onSuccess }: { onBack: () => void; onSuccess: () => void }) {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const submitLogin = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!username.trim() || !password) {
+      setError("Enter your username and password.");
+      return;
+    }
+    setError("");
+    setIsSubmitting(true);
     try {
-      const response = await fetch("/api/applications", { headers: { "x-admin-key": accessKey } });
-      if (!response.ok) throw new Error("Unable to load applications");
-      const data: unknown = await response.json();
-      const rows = Array.isArray(data) ? data : (typeof data === "object" && data !== null && "applications" in data && Array.isArray(data.applications) ? data.applications : []);
-      setApplications(rows as AdminApplication[]); setStatus("success"); setMessage(`${rows.length} application${rows.length === 1 ? "" : "s"} available.`);
-    } catch { setApplications([]); setStatus("failure"); setMessage("We couldn’t verify that access key or load the applications."); }
+      const response = await fetch("/api/admin/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ username: username.trim(), password }),
+      });
+      if (!response.ok) throw new Error("Invalid credentials");
+      onSuccess();
+    } catch {
+      setPassword("");
+      setError("Invalid credentials");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  return <div className="admin-shell"><header className="admin-header"><button className="brand-lockup" type="button" onClick={onBack}><img className="brand-logo" src="/assets/gc-logo-secondary.png" alt="Garden City Tech" width="960" height="455" /></button><button className="text-button" type="button" onClick={onBack}>Back to site ↗</button></header><main className="admin-main"><div className="admin-intro"><p className="overline">Private workspace</p><h1>Applications<br /><em>in view.</em></h1><p>Review service applications submitted through the Garden City Tech site.</p></div><form className="access-form" onSubmit={loadApplications}><label className="field"><span>Access key</span><input type="password" value={accessKey} onChange={(event) => setAccessKey(event.target.value)} autoComplete="current-password" required /></label><button className="button button-dark" type="submit" disabled={status === "loading"}>{status === "loading" ? "Checking…" : "Unlock applications ↗"}</button></form><p className={`admin-message ${status === "failure" ? "is-error" : ""}`} role={status === "failure" ? "alert" : "status"}>{message}</p>{status === "success" && <div className="application-table-wrap"><table className="application-table"><caption className="sr-only">Submitted applications</caption><thead><tr><th>Date</th><th>Applicant</th><th>Organization</th><th>Service</th><th>Package</th><th>Status</th></tr></thead><tbody>{applications.length === 0 ? <tr><td colSpan={6}>No applications yet.</td></tr> : applications.map((application, index) => (<tr key={application.reference ?? index}><td>{application.createdAt ? new Date(application.createdAt).toLocaleDateString() : "—"}</td><td><strong>{application.contactPerson || "—"}</strong><small>{application.email || "—"}</small></td><td>{application.clientName || "—"}</td><td>{application.selectedService || "—"}</td><td>{application.selectedPackage || "—"}</td><td><span className="status-pill">{application.status || "New"}</span></td></tr>))}</tbody></table></div>}</main></div>;
+  return <main className="admin-auth-shell"><section className="admin-auth-card" aria-labelledby="admin-login-heading">
+    <img className="admin-auth-logo" src="/assets/gc-logo-secondary.png" alt="Garden City Tech" width="960" height="455" />
+    <p className="overline">Private workspace</p>
+    <h1 id="admin-login-heading">Admin <em>login.</em></h1>
+    <p className="admin-auth-intro">Sign in to securely review service applications.</p>
+    <form className="admin-auth-form" onSubmit={submitLogin} noValidate>
+      <label className="field" htmlFor="admin-username"><span>Username</span><input id="admin-username" name="username" type="text" value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" required /></label>
+      <label className="field" htmlFor="admin-password"><span>Password</span><input id="admin-password" name="password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required /></label>
+      {error && <p className="admin-auth-error" role="alert">{error}</p>}
+      <button className="button button-lime admin-auth-submit" type="submit" disabled={isSubmitting}>{isSubmitting ? "Signing in…" : "Sign in"}</button>
+    </form>
+    <button className="admin-auth-back" type="button" onClick={onBack}>Back to site</button>
+  </section></main>;
+}
+
+function AdminDashboard({ onBack, onLogout }: { onBack: () => void; onLogout: () => void }) {
+  const [applications, setApplications] = useState<AdminApplication[]>([]);
+  const [status, setStatus] = useState<"loading" | "success" | "failure">("loading");
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/applications", { credentials: "same-origin", cache: "no-store" })
+      .then(async (response) => {
+        if (response.status === 401) {
+          onLogout();
+          return;
+        }
+        if (!response.ok) throw new Error("Unable to load applications");
+        const data: unknown = await response.json();
+        const rows = Array.isArray(data) ? data : (typeof data === "object" && data !== null && "applications" in data && Array.isArray(data.applications) ? data.applications : []);
+        if (active) {
+          setApplications(rows as AdminApplication[]);
+          setStatus("success");
+        }
+      })
+      .catch(() => {
+        if (active) setStatus("failure");
+      });
+    return () => { active = false; };
+  }, [onLogout]);
+
+  const logout = async () => {
+    try {
+      await fetch("/api/admin/logout", { method: "POST", credentials: "same-origin" });
+    } finally {
+      onLogout();
+    }
+  };
+
+  return <div className="admin-shell"><header className="admin-header"><button className="brand-lockup" type="button" onClick={onBack} aria-label="Garden City Tech home"><img className="brand-logo" src="/assets/gc-logo-secondary.png" alt="Garden City Tech" width="960" height="455" /></button><div className="admin-dashboard-actions"><button className="text-button" type="button" onClick={onBack}>Back to site</button><button className="button button-dark" type="button" onClick={logout}>Log out</button></div></header><main className="admin-main"><div className="admin-intro"><p className="overline">Private workspace</p><h1>Welcome, <em>admin.</em></h1><p>Review service applications submitted through the Garden City Tech site.</p></div>{status === "loading" && <p className="admin-message" role="status">Loading applications…</p>}{status === "failure" && <p className="admin-message is-error" role="alert">Applications could not be loaded right now.</p>}{status === "success" && <div className="application-table-wrap"><table className="application-table"><caption className="sr-only">Submitted applications</caption><thead><tr><th>Date</th><th>Applicant</th><th>Organization</th><th>Service</th><th>Package</th><th>Status</th></tr></thead><tbody>{applications.length === 0 ? <tr><td colSpan={6}>No applications yet.</td></tr> : applications.map((application, index) => (<tr key={application.reference ?? index}><td>{application.createdAt ? new Date(application.createdAt).toLocaleDateString() : "—"}</td><td><strong>{application.contactPerson || "—"}</strong><small>{application.email || "—"}</small></td><td>{application.clientName || "—"}</td><td>{application.selectedService || "—"}</td><td>{application.selectedPackage || "—"}</td><td><span className="status-pill">{application.status || "New"}</span></td></tr>))}</tbody></table></div>}</main></div>;
 }
 
 export default App;
