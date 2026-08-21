@@ -277,7 +277,7 @@ function AboutGallery() {
               alt={image.alt}
               width="1600"
               height="1200"
-              loading={index === 0 ? "eager" : "lazy"}
+              loading="eager"
               decoding="async"
             />
           ))}
