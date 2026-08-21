@@ -45,9 +45,13 @@ type AdminApplication = {
 };
 
 const STORY_FILM_ID = "ucsmwKrisFI";
+const STORY_FILM_PREVIEW_SRC = "/assets/mount-everest-himalayas-in-nepal-2026-01-22-22-57-24-utc.mp4";
 const STORY_FILM_BLOB_SRC = "https://szyqzykjfcnibf9f.public.blob.vercel-storage.com/story-film.mp4";
-const STORY_FILM_GITHUB_SRC = "https://raw.githubusercontent.com/gardencitytechdiraj-bot/garden-city-tech/main/public/assets/mount-everest-himalayas-in-nepal-2026-01-22-22-57-24-utc.mp4";
 const STORY_FILM_MODAL_SRC = `https://www.youtube-nocookie.com/embed/${STORY_FILM_ID}?autoplay=1&controls=1&playsinline=1&rel=0&modestbranding=1`;
+const CTA_FEATURE_IMAGE = {
+  src: "/assets/cta-poppy.jpg",
+  alt: "Crimson poppy bud opening against a soft green background",
+} as const;
 
 const services = [
   {
@@ -173,6 +177,11 @@ const companyValues = [
   },
 ] as const;
 
+const aboutGalleryImages = Array.from({ length: 9 }, (_, index) => ({
+  src: `/assets/about-gallery/gallery-${String(index + 1).padStart(2, "0")}.jpg`,
+  alt: `Garden City Tech photo from Nepal ${index + 1}`,
+}));
+
 const initialForm: ApplicationForm = {
   clientName: "",
   contactPerson: "",
@@ -221,6 +230,81 @@ const acceptedFileTypes = [
 const acceptedFileExtensions = [".pdf", ".doc", ".docx", ".png", ".jpg", ".jpeg", ".zip"];
 const maxFileSize = 4 * 1024 * 1024;
 
+function AboutGallery() {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [isReducedMotion, setIsReducedMotion] = useState(false);
+
+  useEffect(() => {
+    const preloadedImages = aboutGalleryImages.map(({ src }) => {
+      const image = new window.Image();
+      image.decoding = "async";
+      image.src = src;
+      return image;
+    });
+
+    return () => {
+      preloadedImages.forEach((image) => {
+        image.src = "";
+      });
+    };
+  }, []);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const updateMotionPreference = () => setIsReducedMotion(mediaQuery.matches);
+    updateMotionPreference();
+    mediaQuery.addEventListener("change", updateMotionPreference);
+    return () => mediaQuery.removeEventListener("change", updateMotionPreference);
+  }, []);
+
+  useEffect(() => {
+    if (isReducedMotion || aboutGalleryImages.length < 2) return;
+    const timer = window.setInterval(() => {
+      setActiveIndex((currentIndex) => (currentIndex + 1) % aboutGalleryImages.length);
+    }, 5200);
+    return () => window.clearInterval(timer);
+  }, [isReducedMotion]);
+
+  return (
+    <figure className="about-gallery" aria-label="Garden City Tech photo gallery">
+      <div className="about-gallery-frame">
+        <div className="about-gallery-slides" aria-live="polite">
+          {aboutGalleryImages.map((image, index) => (
+            <img
+              className={`about-gallery-slide${index === activeIndex ? " is-active" : ""}`}
+              key={image.src}
+              src={image.src}
+              alt={image.alt}
+              width="1600"
+              height="1200"
+              loading={index === 0 ? "eager" : "lazy"}
+              decoding="async"
+            />
+          ))}
+        </div>
+        <div className="about-gallery-meta" aria-hidden="true">
+          <span>Gallery of Garden City</span>
+          <span>{String(activeIndex + 1).padStart(2, "0")} / {String(aboutGalleryImages.length).padStart(2, "0")}</span>
+        </div>
+        <div className="about-gallery-dots" role="tablist" aria-label="Choose a gallery photo">
+          {aboutGalleryImages.map((image, index) => (
+            <button
+              className={`about-gallery-dot${index === activeIndex ? " is-active" : ""}`}
+              key={image.src}
+              type="button"
+              role="tab"
+              aria-selected={index === activeIndex}
+              aria-label={`Show gallery photo ${index + 1}`}
+              onClick={() => setActiveIndex(index)}
+            />
+          ))}
+        </div>
+      </div>
+      <figcaption>Places, people, and ideas that shape our work.</figcaption>
+    </figure>
+  );
+}
+
 function App() {
   const [currentPath, setCurrentPath] = useState(() => window.location.pathname);
 
@@ -249,7 +333,7 @@ function HomePage({ onNavigate }: { onNavigate: (path: string) => void }) {
   const [hoveredValue, setHoveredValue] = useState<string | undefined>();
   const [focusedValue, setFocusedValue] = useState<string | undefined>();
   const [isStoryFilmOpen, setIsStoryFilmOpen] = useState(false);
-  const [storyFilmPreviewSrc, setStoryFilmPreviewSrc] = useState(STORY_FILM_BLOB_SRC);
+  const [storyFilmPreviewSrc, setStoryFilmPreviewSrc] = useState(STORY_FILM_PREVIEW_SRC);
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("home");
   const [headerCondensed, setHeaderCondensed] = useState(false);
@@ -260,7 +344,6 @@ function HomePage({ onNavigate }: { onNavigate: (path: string) => void }) {
   const storyFilmDialogRef = useRef<HTMLDivElement>(null);
   const wasMenuOpen = useRef(false);
   const wasStoryFilmOpen = useRef(false);
-  const storyFilmPreviewFallbackRef = useRef(false);
 
   useEffect(() => {
     const onScroll = () => setHeaderCondensed(window.scrollY > 24);
@@ -327,18 +410,25 @@ function HomePage({ onNavigate }: { onNavigate: (path: string) => void }) {
   useEffect(() => {
     const preview = storyFilmPreviewRef.current;
     if (!preview) return;
-    const resumePreview = () => { void preview.play().catch(() => undefined); };
+    const resumePreview = () => {
+      if (document.visibilityState !== "hidden") void preview.play().catch(() => undefined);
+    };
+    const resumeWhenVisible = () => {
+      if (document.visibilityState === "visible") resumePreview();
+    };
+    preview.addEventListener("loadeddata", resumePreview);
     preview.addEventListener("canplay", resumePreview);
+    document.addEventListener("visibilitychange", resumeWhenVisible);
     resumePreview();
     return () => {
+      preview.removeEventListener("loadeddata", resumePreview);
       preview.removeEventListener("canplay", resumePreview);
+      document.removeEventListener("visibilitychange", resumeWhenVisible);
     };
   }, [storyFilmPreviewSrc]);
 
-  const handleStoryFilmPreviewFailure = () => {
-    if (storyFilmPreviewFallbackRef.current) return;
-    storyFilmPreviewFallbackRef.current = true;
-    setStoryFilmPreviewSrc(STORY_FILM_GITHUB_SRC);
+  const handleStoryFilmPreviewError = () => {
+    if (storyFilmPreviewSrc !== STORY_FILM_BLOB_SRC) setStoryFilmPreviewSrc(STORY_FILM_BLOB_SRC);
   };
 
   useEffect(() => {
@@ -417,7 +507,7 @@ function HomePage({ onNavigate }: { onNavigate: (path: string) => void }) {
             </div>
             <div className="hero-visual" aria-label="Garden City Tech story film">
               <div className="video-placeholder">
-                <video key={storyFilmPreviewSrc} ref={storyFilmPreviewRef} className="video-preview" src={storyFilmPreviewSrc} autoPlay muted loop playsInline preload="auto" poster="/assets/gc-logo-icon.png" onError={handleStoryFilmPreviewFailure} onStalled={handleStoryFilmPreviewFailure} aria-hidden="true" />
+                <video key={storyFilmPreviewSrc} ref={storyFilmPreviewRef} className="video-preview" src={storyFilmPreviewSrc} autoPlay muted loop playsInline preload="auto" poster="/assets/gc-logo-icon.png" onError={handleStoryFilmPreviewError} aria-hidden="true" />
                 <div className="video-grid-lines" aria-hidden="true" />
                 <div className="video-label"><span className="status-dot" /> WHO WE ARE !</div>
                 <MagneticPlayButton buttonRef={storyFilmTriggerRef} onActivate={() => setIsStoryFilmOpen(true)} />
@@ -430,7 +520,7 @@ function HomePage({ onNavigate }: { onNavigate: (path: string) => void }) {
 
         <section className="intro-section section-light" aria-labelledby="intro-heading">
           <div className="container intro-grid">
-            <p className="overline">A better kind of technology partner</p>
+            <AboutGallery />
             <div>
               <h2 id="intro-heading">Good technology is built by good <em>thinking.</em></h2>
               <p className="large-copy">Garden City Tech brings design, engineering, and long-term care together to turn ambitious ideas into dependable digital experiences.</p>
@@ -486,14 +576,14 @@ function HomePage({ onNavigate }: { onNavigate: (path: string) => void }) {
         </section>
 
         <section id="about" className="about-section section-light" aria-labelledby="about-heading">
-          <div className="container about-grid"><div><p className="overline">01 — Foundations</p><h2 id="about-heading">Rooted here.<br /><em>Ready for anywhere.</em></h2><p className="large-copy">Garden City Tech is a software development and technology company creating digital solutions that help businesses innovate, grow, and make a lasting impact.</p></div>
+          <div className="container about-grid"><div><h2 id="about-heading">Rooted here.<br /><em>Ready for anywhere.</em></h2><p className="large-copy">Garden City Tech is a software development and technology company creating digital solutions that help businesses innovate, grow, and make a lasting impact.</p></div>
             <div className="values-stack"><div className="manifesto-card card-vision"><p className="overline">Vision</p><p>To be a globally trusted technology partner, recognized for delivering innovative solutions while empowering people to creatively impact future generations.</p></div><div className="manifesto-card card-mission"><p className="overline">Mission</p><p>To build technology and provide long-term support that helps businesses innovate, grow, and turn their vision into reality through collaboration, integrity, and technical excellence.</p></div><div className="values-card" onMouseLeave={() => setHoveredValue(undefined)}><p className="overline">Values we bring</p><div className="value-tags">{companyValues.map((value) => <button className="value-chip" type="button" key={value.name} aria-expanded={activeValueName === value.name} aria-pressed={selectedValue === value.name} aria-controls="value-message-panel" onMouseEnter={() => setHoveredValue(value.name)} onFocus={() => setFocusedValue(value.name)} onBlur={() => setFocusedValue((current) => current === value.name ? undefined : current)} onClick={() => { const nextValue = selectedValue === value.name ? undefined : value.name; setSelectedValue(nextValue); setFocusedValue(nextValue); if (!nextValue) setHoveredValue(undefined); }}>{value.name}</button>)}</div>{activeValueDetails && <section id="value-message-panel" className="value-message value-message-panel" aria-labelledby="value-message-heading" aria-live="polite" aria-atomic="true"><p className="overline overline-lime">Value in practice</p><h3 id="value-message-heading">{activeValueDetails.name}</h3><p>{activeValueDetails.message}</p></section>}</div></div>
           </div>
         </section>
 
         {isApplicationOpen && <ApplicationSection selectedPackage={selectedPackage} selectedService={selectedService} onClose={() => setIsApplicationOpen(false)} />}
 
-        <section id="contact" className="cta-section section-dark" aria-labelledby="cta-heading"><div className="cta-logo-mark" aria-hidden="true"><img src="/assets/gc-logo-icon.png" alt="" width="180" height="180" /></div><div className="container cta-content"><p className="overline overline-lime">Your next chapter starts here</p><h2 id="cta-heading">Let’s grow<br /><em>something good.</em></h2><p>Tell us where you’re headed. We’ll bring curiosity, clarity, and the technical care to help you get there.</p><button className="button button-lime" type="button" onClick={() => openApplication()}>Apply for service</button></div></section>
+        <section id="contact" className="cta-section section-dark" aria-labelledby="cta-heading"><div className="cta-logo-mark" aria-hidden="true"><img src="/assets/gc-logo-icon.png" alt="" width="180" height="180" /></div><div className="container cta-content"><p className="overline overline-lime">Your next chapter starts here</p><h2 id="cta-heading">Let’s grow<br /><em>something good.</em></h2><p>Tell us where you’re headed. We’ll bring curiosity, clarity, and the technical care to help you get there.</p><button className="button button-lime" type="button" onClick={() => openApplication()}>Apply for service</button></div><div className="cta-image-frame"><img src={CTA_FEATURE_IMAGE.src} alt={CTA_FEATURE_IMAGE.alt} width="1200" height="1800" loading="lazy" decoding="async" /></div></section>
       </main>
 
       {isStoryFilmOpen && <div className="video-modal" onKeyDown={(event: ReactKeyboardEvent<HTMLDivElement>) => { if (event.key === "Escape") closeStoryFilm(); }}>
